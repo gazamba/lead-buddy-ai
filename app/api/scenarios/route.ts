@@ -6,28 +6,22 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase.auth.getUser();
-    console.log(`data: ${data} error: ${error}`);
-    if (error || !data?.user) {
-      // redirect("/login");
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // const {
-    //   data: { session },
-    // } = await supabase.auth.getSession();
+    const { data, error } = await supabase
+      .from("scenarios")
+      .select("*")
+      .order("created_at", { ascending: false });
 
-    // if (!session) {
-    //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    // }
-
-    // const { data, error } = await supabase
-    //   .from("scenarios")
-    //   .select("*")
-    //   .order("created_at", { ascending: false });
-
-    // if (error) {
-    //   return NextResponse.json({ error: error.message }, { status: 500 });
-    // }
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
 
     return NextResponse.json(data);
   } catch (error) {

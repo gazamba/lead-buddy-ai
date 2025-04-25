@@ -1,24 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { scenariosId: string } }
 ) {
   try {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
+    const { scenariosId } = await params;
 
     const { data, error } = await supabase
       .from("scenarios")
       .select("*")
-      .eq("id", params.id)
+      .eq("id", scenariosId)
       .single();
 
     if (error) {
@@ -31,7 +25,7 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (data.user_id !== session.user.id) {
+    if (data.user_id !== (await supabase.auth.getUser()).data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -47,22 +41,16 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { scenariosId: string } }
 ) {
   try {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
+    const { scenariosId } = await params;
 
     const { data: scenario, error: fetchError } = await supabase
       .from("scenarios")
       .select("user_id, is_custom")
-      .eq("id", params.id)
+      .eq("id", scenariosId)
       .single();
 
     if (fetchError) {
@@ -75,7 +63,7 @@ export async function DELETE(
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (scenario.user_id !== session.user.id) {
+    if (scenario.user_id !== (await supabase.auth.getUser()).data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -89,7 +77,7 @@ export async function DELETE(
     const { error } = await supabase
       .from("scenarios")
       .delete()
-      .eq("id", params.id);
+      .eq("id", scenariosId);
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
@@ -107,22 +95,16 @@ export async function DELETE(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: { scenariosId: string } }
 ) {
   try {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
+    const { scenariosId } = await params;
 
     const { data: scenario, error: fetchError } = await supabase
       .from("scenarios")
       .select("user_id")
-      .eq("id", params.id)
+      .eq("id", scenariosId)
       .single();
 
     if (fetchError) {
@@ -135,7 +117,7 @@ export async function PATCH(
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (scenario.user_id !== session.user.id) {
+    if (scenario.user_id !== (await supabase.auth.getUser()).data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -147,7 +129,7 @@ export async function PATCH(
         ...body,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id)
+      .eq("id", scenariosId)
       .select()
       .single();
 

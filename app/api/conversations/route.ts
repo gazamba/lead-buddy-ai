@@ -1,16 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/client";
+import { createClient } from "@/utils/supabase/server";
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("conversations")
@@ -38,14 +31,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = await createClient();
 
     const body = await request.json();
 
@@ -61,7 +47,7 @@ export async function POST(request: Request) {
 
     const conversation = {
       ...body,
-      user_id: session.user.id,
+      user_id: (await supabase.auth.getUser()).data.user?.id,
     };
 
     const { data, error } = await supabase
