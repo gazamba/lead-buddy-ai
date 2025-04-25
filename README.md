@@ -2,7 +2,9 @@
 
 Lead Buddy AI is an AI-powered platform designed to help managers practice critical conversations in a realistic and safe environment. The application leverages advanced AI models to simulate real-world workplace scenarios, empowering users to build confidence and enhance their leadership communication skills.
 
-<Pending App Deployed Vercel Link>
+### 🚧 **Project Status: In Development** 🚧
+
+This project is currently a work in progress. Features and functionality may change as development continues.
 
 ## 📌 Features
 
