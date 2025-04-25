@@ -35,14 +35,14 @@ export function Header() {
         </nav>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link href="/login">
+          {/* <Link href="/login">
             <Button variant="ghost" size="sm">
               Log in
             </Button>
           </Link>
           <Link href="/signup">
             <Button size="sm">Sign up</Button>
-          </Link>
+          </Link> */}
         </div>
       </div>
     </header>

@@ -4,16 +4,26 @@ import { createContext, useContext, useEffect, useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import { User } from "@supabase/supabase-js";
 
-const AuthContext = createContext<{ user: User | null }>({ user: null });
+type AuthContextType = {
+  user: User | null;
+  isLoading: boolean;
+};
+
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  isLoading: true,
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
   useEffect(() => {
     const getUser = async () => {
       const { data } = await supabase.auth.getUser();
       setUser(data.user);
+      setIsLoading(false);
     };
     getUser();
 
@@ -29,7 +39,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [supabase]);
 
   return (
-    <AuthContext.Provider value={{ user }}>{children}</AuthContext.Provider>
+    <AuthContext.Provider value={{ user, isLoading }}>
+      {children}
+    </AuthContext.Provider>
   );
 }
 

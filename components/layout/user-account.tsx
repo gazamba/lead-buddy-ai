@@ -17,11 +17,14 @@ import {
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "../auth-provider";
 import { signOut } from "@/app/(auth)/login/actions";
+import { SkeletonUserAccount } from "./user-account-skeleton";
 
 export function UserAccount() {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+
+  if (isLoading) return <SkeletonUserAccount />;
 
   if (!user) {
     return (
