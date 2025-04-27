@@ -279,7 +279,7 @@ export default function SimulatorPage() {
       <NavHeader />
       <main className="flex-1 container py-6 px-4 md:px-6 md:py-10">
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">{currentScenario.title}</h1>
+          <h1 className="text-3xl font-bold">{currentScenario.title}</h1>
           <div className="flex gap-2">
             <SavedConversations onLoadConversation={handleLoadConversation} />
           </div>
