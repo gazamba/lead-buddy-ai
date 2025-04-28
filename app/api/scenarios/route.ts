@@ -2,14 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 
+//GET Scenarios non custom
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
-    const user = await supabase.auth.getUser();
-
-    if (!user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
-    }
 
     const { data, error } = await supabase
       .from("scenarios")
@@ -19,7 +15,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
+    console.log(data);
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching scenarios:", error);
