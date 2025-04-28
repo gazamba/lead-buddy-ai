@@ -20,7 +20,7 @@ export async function getScenarios(): Promise<Scenario[]> {
 }
 
 export async function getScenarioById(id: string) {
-  const response = await fetch(`/api/scenarios/${id}`);
+  const response = await fetch(`${getBaseUrl()}/api/scenarios/${id}`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to fetch scenario");
@@ -74,10 +74,10 @@ export async function createScenarioTips(formData: FormData) {
 }
 
 export async function createPrompt(prompt: string) {
-  const response = await fetch("/api/prompts", {
+  const response = await fetch(`${getBaseUrl()}/api/prompts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(prompt), // test to see this
+    body: JSON.stringify(prompt),
   });
 
   if (!response.ok) {
@@ -89,7 +89,7 @@ export async function createPrompt(prompt: string) {
 }
 
 export async function createScenario(scenario: any) {
-  const response = await fetch("/api/scenarios", {
+  const response = await fetch(`${getBaseUrl()}/api/scenarios`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -104,7 +104,7 @@ export async function createScenario(scenario: any) {
 }
 
 export async function updateScenario(id: string, updates: any) {
-  const response = await fetch(`/api/scenarios/${id}`, {
+  const response = await fetch(`${getBaseUrl()}/api/scenarios/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -119,7 +119,7 @@ export async function updateScenario(id: string, updates: any) {
 }
 
 export async function deleteScenario(id: string) {
-  const response = await fetch(`/api/scenarios/${id}`, {
+  const response = await fetch(`${getBaseUrl()}/api/scenarios/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -130,7 +130,7 @@ export async function deleteScenario(id: string) {
 }
 
 export async function getConversations() {
-  const response = await fetch("/api/conversations");
+  const response = await fetch(`${getBaseUrl()}/api/conversations`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to fetch conversations");
@@ -139,7 +139,7 @@ export async function getConversations() {
 }
 
 export async function getConversationById(id: string) {
-  const response = await fetch(`/api/conversations/${id}`);
+  const response = await fetch(`${getBaseUrl()}/api/conversations/${id}`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to fetch conversation");
@@ -148,7 +148,7 @@ export async function getConversationById(id: string) {
 }
 
 export async function createConversation(conversation: any) {
-  const response = await fetch("/api/conversations", {
+  const response = await fetch(`${getBaseUrl()}/api/conversations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -163,7 +163,7 @@ export async function createConversation(conversation: any) {
 }
 
 export async function updateConversation(id: string, updates: any) {
-  const response = await fetch(`/api/conversations/${id}`, {
+  const response = await fetch(`${getBaseUrl()}/api/conversations/${id}`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
@@ -178,7 +178,7 @@ export async function updateConversation(id: string, updates: any) {
 }
 
 export async function deleteConversation(id: string) {
-  const response = await fetch(`/api/conversations/${id}`, {
+  const response = await fetch(`${getBaseUrl()}/api/conversations/${id}`, {
     method: "DELETE",
   });
   if (!response.ok) {
@@ -189,7 +189,7 @@ export async function deleteConversation(id: string) {
 }
 
 export async function getProfile() {
-  const response = await fetch("/api/profile");
+  const response = await fetch(`${getBaseUrl()}/api/profile`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to fetch profile");
@@ -198,7 +198,7 @@ export async function getProfile() {
 }
 
 export async function updateProfile(updates: any) {
-  const response = await fetch("/api/profile", {
+  const response = await fetch(`${getBaseUrl()}/api/profile`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",

@@ -41,6 +41,13 @@ export async function updateSession(request: NextRequest) {
 
   const isApiRoute = request.nextUrl.pathname.startsWith("/api/");
 
+  if (
+    request.nextUrl.pathname === "/api/scenarios" &&
+    request.method === "GET"
+  ) {
+    return NextResponse.next();
+  }
+
   if (!user) {
     if (isApiRoute) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
