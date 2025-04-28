@@ -57,8 +57,8 @@ export async function createScenarioTips(formData: FormData) {
     const error = await response.json();
     throw new Error(error.error || "Failed to create promppt");
   }
-  const parseArrayPrompt = response.json();
-  return JSON.stringify(parseArrayPrompt);
+
+  return response.json();
 }
 
 export async function createPrompt(prompt: string) {

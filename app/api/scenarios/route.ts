@@ -40,7 +40,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
-    const requiredFields = ["title", "description", "context", "employee_name"];
+    //implement ZOD later
+    const requiredFields = [
+      "title",
+      "description",
+      "context",
+      "employee_name",
+      "tips",
+    ];
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
@@ -50,8 +57,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const { tips } = body;
+
     const scenario = {
       ...body,
+      tips: JSON.parse(tips.replace(/\n/g, "")),
       user_id: user.data.user?.id,
       employee_avatar:
         body.employee_avatar || body.employee_name.charAt(0).toUpperCase(),
