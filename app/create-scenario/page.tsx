@@ -18,7 +18,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { createScenario } from "@/lib/api";
+import { createScenario, createScenarioTips } from "@/lib/api";
 import { useAuth } from "@/components/auth-provider";
 
 export default function CreateScenarioPage() {
@@ -28,8 +28,6 @@ export default function CreateScenarioPage() {
   const [description, setDescription] = useState("");
   const [context, setContext] = useState("");
   const [employeeName, setEmployeeName] = useState("");
-  const [employeeAvatar, setEmployeeAvatar] = useState("");
-  const [tips, setTips] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,18 +39,21 @@ export default function CreateScenarioPage() {
     setError(null);
 
     try {
-      const tipsArray = tips
-        .split("\n")
-        .map((tip) => tip.trim())
-        .filter((tip) => tip.length > 0);
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("context", context);
+      formData.append("employeeName", employeeName);
+
+      const tips = await createScenarioTips(formData);
 
       const scenario = await createScenario({
         title,
         description,
         context,
         employee_name: employeeName,
-        employee_avatar: employeeAvatar || employeeName.charAt(0).toUpperCase(),
-        tips: tipsArray,
+        employee_avatar: employeeName.charAt(0).toUpperCase(),
+        tips: tips,
       });
 
       router.push(`/simulator?id=${scenario.id}`);
@@ -119,7 +120,7 @@ export default function CreateScenarioPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="employee-name">Employee Name</Label>
                   <Input
@@ -130,36 +131,6 @@ export default function CreateScenarioPage() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="employee-avatar">
-                    Employee Avatar (Optional)
-                  </Label>
-                  <Input
-                    id="employee-avatar"
-                    placeholder="e.g., A (single letter)"
-                    value={employeeAvatar}
-                    onChange={(e) => setEmployeeAvatar(e.target.value)}
-                    maxLength={1}
-                  />
-                  <p className="text-xs text-gray-500">
-                    Leave empty to use first letter of name
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tips">Conversation Tips (Optional)</Label>
-                <Textarea
-                  id="tips"
-                  placeholder="Enter tips for this conversation, one per line..."
-                  value={tips}
-                  onChange={(e) => setTips(e.target.value)}
-                  rows={4}
-                />
-                <p className="text-xs text-gray-500">
-                  Enter each tip on a new line. If left empty, default tips will
-                  be used.
-                </p>
               </div>
             </CardContent>
             <CardFooter className="flex justify-between">

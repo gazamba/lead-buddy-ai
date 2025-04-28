@@ -5,13 +5,10 @@ import { redirect } from "next/navigation";
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
+    const user = await supabase.auth.getUser();
 
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
     const { data, error } = await supabase
@@ -36,15 +33,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const supabase = await createClient();
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
     const body = await request.json();
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const requiredFields = ["title", "description", "context", "employee_name"];
     for (const field of requiredFields) {
@@ -58,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     const scenario = {
       ...body,
-      user_id: session.user.id,
+      user_id: user.data.user?.id,
       employee_avatar:
         body.employee_avatar || body.employee_name.charAt(0).toUpperCase(),
       is_custom: true,

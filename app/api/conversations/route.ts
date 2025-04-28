@@ -32,8 +32,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
-
+    const user = await supabase.auth.getUser();
     const body = await request.json();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const requiredFields = ["scenario_id", "name", "messages"];
     for (const field of requiredFields) {
@@ -47,7 +51,7 @@ export async function POST(request: Request) {
 
     const conversation = {
       ...body,
-      user_id: (await supabase.auth.getUser()).data.user?.id,
+      user_id: user.data.user?.id,
     };
 
     const { data, error } = await supabase

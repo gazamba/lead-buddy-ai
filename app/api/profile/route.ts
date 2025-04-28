@@ -5,10 +5,16 @@ export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient();
 
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
+
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", (await supabase.auth.getUser()).data.user?.id)
+      .eq("id", user.data.user?.id)
       .single();
 
     if (error) {
@@ -28,8 +34,13 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: Request) {
   try {
     const supabase = await createClient();
-
     const body = await request.json();
+
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const { data, error } = await supabase
       .from("profiles")
@@ -37,7 +48,7 @@ export async function PATCH(request: Request) {
         ...body,
         updated_at: new Date().toISOString(),
       })
-      .eq("id", (await supabase.auth.getUser()).data.user?.id)
+      .eq("id", user.data.user?.id)
       .select()
       .single();
 

@@ -8,6 +8,11 @@ export async function GET(
   try {
     const supabase = await createClient();
     const { conversationsId } = await params;
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const { data, error } = await supabase
       .from("conversations")
@@ -30,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (data.user_id !== (await supabase.auth.getUser()).data.user?.id) {
+    if (data.user_id !== user.data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -50,8 +55,13 @@ export async function DELETE(
 ) {
   try {
     const supabase = await createClient();
-
     const { conversationsId } = await params;
+
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const { data: conversation, error: fetchError } = await supabase
       .from("conversations")
@@ -69,9 +79,7 @@ export async function DELETE(
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (
-      conversation.user_id !== (await supabase.auth.getUser()).data.user?.id
-    ) {
+    if (conversation.user_id !== user.data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -100,8 +108,12 @@ export async function PATCH(
 ) {
   try {
     const supabase = await createClient();
-
     const { conversationsId } = await params;
+    const user = await supabase.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+    }
 
     const { data: conversation, error: fetchError } = await supabase
       .from("conversations")
@@ -119,9 +131,7 @@ export async function PATCH(
       return NextResponse.json({ error: fetchError.message }, { status: 500 });
     }
 
-    if (
-      conversation.user_id !== (await supabase.auth.getUser()).data.user?.id
-    ) {
+    if (conversation.user_id !== user.data.user?.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
