@@ -1,9 +1,21 @@
-export async function getScenarios() {
-  const response = await fetch("/api/scenarios");
+import { Scenario } from "./types";
+
+function getBaseUrl() {
+  if (typeof window !== "undefined") {
+    return "";
+  }
+
+  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+}
+
+export async function getScenarios(): Promise<Scenario[]> {
+  const response = await fetch(`${getBaseUrl()}/api/scenarios`);
+
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to fetch scenarios");
   }
+
   return response.json();
 }
 
