@@ -75,10 +75,13 @@ export function SavedConversations({
 
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setIsOpen(true)}>
-        <MessageSquare className="h-4 w-4 mr-1" /> Saved Conversations
-      </Button>
-
+      {user ? (
+        <Button variant="outline" size="sm" onClick={() => setIsOpen(true)}>
+          <MessageSquare className="h-4 w-4 mr-1" /> Saved Conversations
+        </Button>
+      ) : (
+        <></>
+      )}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

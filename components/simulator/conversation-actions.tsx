@@ -64,14 +64,19 @@ export function ConversationActions({
 
   return (
     <div className="flex justify-end gap-2 mb-4">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setSaveDialogOpen(true)}
-        disabled={messages.length <= 1}
-      >
-        <Save className="h-4 w-4 mr-1" /> Save Conversation
-      </Button>
+      {user ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => setSaveDialogOpen(true)}
+          disabled={messages.length <= 1}
+        >
+          <Save className="h-4 w-4 mr-1" /> Save Conversation
+        </Button>
+      ) : (
+        <></>
+      )}
+
       <Button variant="outline" size="sm" onClick={onReset}>
         <RotateCcw className="h-4 w-4 mr-1" /> Reset
       </Button>
