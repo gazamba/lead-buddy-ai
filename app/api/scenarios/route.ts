@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    console.log(data);
+
     return NextResponse.json(data);
   } catch (error) {
     console.error("Error fetching scenarios:", error);
