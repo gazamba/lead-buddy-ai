@@ -211,3 +211,17 @@ export async function updateProfile(updates: any) {
   }
   return response.json();
 }
+
+export async function getFeedback(prompt: string) {
+  const response = await fetch(`${getBaseUrl()}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ prompt: prompt }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || "Failed to get feedback");
+  }
+
+  return response.json();
+}
