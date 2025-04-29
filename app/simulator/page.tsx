@@ -12,7 +12,12 @@ import { FeedbackPanel } from "@/components/simulator/feedback-panel";
 import { ConversationActions } from "@/components/simulator/conversation-actions";
 import { SavedConversations } from "@/components/simulator/saved-conversations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getScenarios, getScenarioById, getConversationById } from "@/lib/api";
+import {
+  getScenarios,
+  getScenarioById,
+  getConversationById,
+  getFeedback,
+} from "@/lib/api";
 import type {
   Message,
   Feedback,
@@ -46,7 +51,7 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      if (!user) return;
+      // if (!user) return;
 
       setIsLoadingScenarios(true);
       try {
@@ -192,10 +197,36 @@ export default function SimulatorPage() {
     }
   };
 
-  const generateSimulatedFeedback = (conversationMessages: Message[]) => {
-    const managerMessages = conversationMessages
-      .filter((msg) => msg.role === "user")
-      .map((msg) => msg.content);
+  const generateSimulatedFeedback = async (conversationMessages: Message[]) => {
+    const conversations = conversationMessages.map(
+      (msg) => `${msg.role}: ${msg.content}`
+    );
+
+    const prompt = `
+      Based on the interaction with user and assistant(ai), provide the ONE feedback for the whole conversation as per the example below in a object format:
+      const objectFormat = {
+      clarity: Math.floor(Math.random() * 30) + 70, // Random number between 70-100
+      empathy: Math.floor(Math.random() * 30) + 70,
+      effectiveness: Math.floor(Math.random() * 30) + 70,
+      strengths: [
+        "You asked good clarifying questions",
+        "You maintained a professional tone throughout",
+        "You provided specific examples to support your points",
+      ],
+      improvements: [
+        "Consider acknowledging emotions more explicitly",
+        "Try to establish clearer next steps and expectations",
+        "Provide more specific feedback with concrete examples",
+      ],
+      summary:
+        "Overall, you demonstrated good communication skills with room for improvement in emotional intelligence and setting clear expectations. Continue practicing active listening and empathetic responses.",
+    };
+
+      Conversation for reference: ${conversations}
+      `;
+    const feedback = await getFeedback(prompt);
+
+    console.log(feedback);
 
     const simulatedFeedback: Feedback = {
       clarity: Math.floor(Math.random() * 30) + 70, // Random number between 70-100
