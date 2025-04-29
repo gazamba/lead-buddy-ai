@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("scenarios")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: true });
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
