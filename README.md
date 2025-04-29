@@ -17,13 +17,11 @@ This project is currently a work in progress. Features and functionality may cha
 
 ## 🚀 Tech Stack
 
-- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Frontend**: Next.js 15, React, TypeScript, Tailwind v4
 - **UI Components**: shadcn/ui
 - **Authentication**: Supabase Auth
 - **Database**: Supabase PostgreSQL
 - **State Management**: React Context API
-- **Styling**: Tailwind CSS with theming support (light/dark mode)
-- **Icons**: Lucide React
 - **AI Models**: OpenAI GPT-4 integrated with LangChain for advanced conversational capabilities
 
 ## 🛠 Setup and Installation
