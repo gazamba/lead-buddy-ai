@@ -28,25 +28,29 @@ export async function ScenariosSection() {
             >
               <h3 className="text-xl font-bold">{scenario.title}</h3>
               <p className="text-gray-500">{scenario.description}</p>
-              {scenario.is_custom ? (
-                <Link href="/create-scenario">
-                  <Button variant="ghost" className="mt-auto">
-                    Create <Wand2 className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              ) : (
-                <Link
-                  href={`/simulator?scenario=${scenario.title
-                    .toLowerCase()
-                    .replace(/\s+/g, "-")}`}
-                >
-                  <Button variant="ghost" className="mt-auto">
-                    Practice <ArrowRight className="ml-2 h-4 w-4" />
-                  </Button>
-                </Link>
-              )}
+
+              <Link
+                href={`/simulator?scenario=${scenario.title
+                  .toLowerCase()
+                  .replace(/\s+/g, "-")}`}
+              >
+                <Button variant="ghost" className="mt-auto">
+                  Practice <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           ))}
+          <div className="flex flex-col space-y-3 rounded-lg border p-6 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
+            <h3 className="text-xl font-bold">Custom Scenario</h3>
+            <p className="text-gray-500">
+              Create your own scenario tailored to your specific needs.
+            </p>
+            <Link href="/create-scenario">
+              <Button variant="ghost" className="mt-auto">
+                Create <Wand2 className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
     </section>
