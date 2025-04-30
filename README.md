@@ -21,7 +21,6 @@ This project is currently a work in progress. Features and functionality may cha
 - **UI Components**: shadcn/ui
 - **Authentication**: Supabase Auth
 - **Database**: Supabase PostgreSQL
-- **State Management**: React Context API
 - **AI Models**: OpenAI GPT-4 integrated with LangChain for advanced conversational capabilities
 
 ## 🛠 Setup and Installation
