@@ -20,13 +20,13 @@ import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { signup } from "../login/actions";
+import { toast } from "sonner";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [company, setCompany] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -41,9 +41,18 @@ export default function SignupPage() {
       const formData = new FormData();
       formData.append("email", email);
       formData.append("password", password);
+      formData.append("firstName", firstName);
+      formData.append("lastName", lastName);
 
-      await signup(formData);
-      router.push("/");
+      const error = await signup(formData);
+
+      if (error) {
+        setError(error.message);
+      }
+      setIsSuccess(true);
+      setTimeout(() => {
+        router.push("/login");
+      }, 3000);
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       console.error(err);
@@ -84,7 +93,7 @@ export default function SignupPage() {
               <Alert>
                 <AlertDescription>
                   Account created successfully! You will be redirected to the
-                  home page.
+                  login page.
                 </AlertDescription>
               </Alert>
             )}
@@ -130,15 +139,6 @@ export default function SignupPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={6}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="company">Company (Optional)</Label>
-              <Input
-                id="company"
-                placeholder="Your company name"
-                value={company}
-                onChange={(e) => setCompany(e.target.value)}
               />
             </div>
           </CardContent>

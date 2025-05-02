@@ -22,7 +22,7 @@ import { SkeletonUserAccount } from "./user-account-skeleton";
 export function UserAccount() {
   const router = useRouter();
   const [isSigningOut, setIsSigningOut] = useState(false);
-  const { user, isLoading } = useAuth();
+  const { user, setUser, isLoading } = useAuth();
 
   if (isLoading) return <SkeletonUserAccount />;
 
@@ -44,7 +44,12 @@ export function UserAccount() {
   const handleSignOut = async () => {
     setIsSigningOut(true);
     try {
-      await signOut();
+      const error = await signOut();
+      if (error) {
+        console.error("Error signing out:", error.message);
+      }
+      setUser(null);
+      router.push("/");
     } catch (error) {
       console.error("Error signing out:", error);
     } finally {
@@ -54,9 +59,7 @@ export function UserAccount() {
 
   const getInitials = () => {
     if (!user) return "U";
-    const email = user.email || "";
-    const name = user.user_metadata?.first_name || email.split("@")[0];
-    return name.charAt(0).toUpperCase();
+    return user.user_metadata?.avatar_initial.toUpperCase();
   };
 
   return (

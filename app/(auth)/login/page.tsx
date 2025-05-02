@@ -18,26 +18,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { createClient } from "@/utils/supabase/client";
+import { useAuth } from "@/components/auth-provider";
 
 export default function LoginPage() {
+  const { setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/";
-
-  //   return (
-  //     <form>
-  //       <label htmlFor="email">Email:</label>
-  //       <input id="email" name="email" type="email" required />
-  //       <label htmlFor="password">Password:</label>
-  //       <input id="password" name="password" type="password" required />
-  //       <button formAction={login}>Log in</button>
-  //       <button formAction={signup}>Sign up</button>
-  //     </form>
-  //   );
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,9 +40,24 @@ export default function LoginPage() {
       formData.append("email", email);
       formData.append("password", password);
 
-      await login(formData);
+      const error = await login(formData);
 
-      router.push(redirectTo);
+      if (error) {
+        setError(error.message);
+      }
+
+      const {
+        data: { user },
+        error: fetchError,
+      } = await supabase.auth.getUser();
+
+      if (fetchError) {
+        setError(fetchError.message);
+        return;
+      }
+
+      setUser(user); // optional, mostly handled by onAuthStateChange
+      router.push("/");
     } catch (err) {
       setError("An unexpected error occurred. Please try again.");
       console.error(err);
