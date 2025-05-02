@@ -1,4 +1,4 @@
-import { Scenario } from "./types";
+import { Feedback, Scenario } from "./types";
 
 function getBaseUrl() {
   if (typeof window !== "undefined") {
@@ -162,21 +162,6 @@ export async function createConversation(conversation: any) {
   return response.json();
 }
 
-export async function updateConversation(id: string, updates: any) {
-  const response = await fetch(`${getBaseUrl()}/api/conversations/${id}`, {
-    method: "PATCH",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(updates),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.error || "Failed to update conversation");
-  }
-  return response.json();
-}
-
 export async function deleteConversation(id: string) {
   const response = await fetch(`${getBaseUrl()}/api/conversations/${id}`, {
     method: "DELETE",
@@ -212,7 +197,39 @@ export async function updateProfile(updates: any) {
   return response.json();
 }
 
-export async function getFeedback(prompt: string) {
+export async function getFeedback(
+  context: string,
+  conversations: string
+): Promise<Feedback> {
+  const prompt = `
+You are an expert leadership coach. Based on the provided context and conversations, provide ONE feedback object for the entire conversation in the exact JSON format shown below. The response MUST:
+- Contain ONLY the JSON object.
+- Be valid JSON with no trailing commas, unclosed brackets, or syntax errors.
+- Exclude any additional text, markdown (e.g., \`\`\`json), or explanations.
+- Ensure all arrays (e.g., strengths, improvements) are complete and properly closed.
+
+Example format:
+{
+  "clarity": 85,
+  "empathy": 90,
+  "effectiveness": 80,
+  "strengths": [
+    "You asked good clarifying questions",
+    "You maintained a professional tone throughout",
+    "You provided specific examples to support your points"
+  ],
+  "improvements": [
+    "Consider acknowledging emotions more explicitly",
+    "Try to establish clearer next steps and expectations",
+    "Provide more specific feedback with concrete examples"
+  ],
+  "summary": "Overall, you demonstrated good communication skills with room for improvement in emotional intelligence and setting clear expectations. Continue practicing active listening and empathetic responses."
+}
+
+Context: ${context}
+Conversations for reference: ${conversations}
+`;
+
   const response = await fetch(`${getBaseUrl()}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -221,7 +238,17 @@ export async function getFeedback(prompt: string) {
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.error || "Failed to get feedback");
+  } 
+  
+  const data = await response.json();
+  
+  let feedback:Feedback;
+  try {
+    feedback = typeof data === "string" ? JSON.parse(data) : data;
+  } catch (parseError) {
+    console.error("Failed to parse feedback:", parseError);
+    throw new Error("Invalid feedback format received from API");
   }
 
-  return response.json();
+  return feedback;
 }

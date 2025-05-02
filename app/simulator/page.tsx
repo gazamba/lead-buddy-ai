@@ -1,7 +1,6 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { Info } from "lucide-react";
@@ -11,13 +10,8 @@ import { ConversationPanel } from "@/components/simulator/conversation-panel";
 import { FeedbackPanel } from "@/components/simulator/feedback-panel";
 import { ConversationActions } from "@/components/simulator/conversation-actions";
 import { SavedConversations } from "@/components/simulator/saved-conversations";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  getScenarios,
-  getScenarioById,
-  getConversationById,
-  getFeedback,
-} from "@/lib/api";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { getScenarios, getScenarioById, getConversationById } from "@/lib/api";
 import type {
   Message,
   Feedback,
@@ -25,6 +19,7 @@ import type {
   SavedConversation,
 } from "@/lib/types";
 import { useAuth } from "@/components/auth-provider";
+import { v4 as uuidv4 } from "uuid";
 
 export default function SimulatorPage() {
   const searchParams = useSearchParams();
@@ -35,11 +30,13 @@ export default function SimulatorPage() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(true);
+  const [isChatEnded, setIsChatEnded] = useState(false);
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [feedback, setFeedback] = useState<Feedback | null>(null);
   const [activeTab, setActiveTab] = useState("conversation");
+  const [sessionId, setSessionId] = useState<string | null>(conversationId);
 
   const defaultTips = [
     "Be clear and specific in your communication",
@@ -51,23 +48,18 @@ export default function SimulatorPage() {
 
   useEffect(() => {
     const loadData = async () => {
-      // if (!user) return;
-
       setIsLoadingScenarios(true);
       try {
         if (conversationId) {
           const conversation = await getConversationById(conversationId);
           if (conversation) {
             setMessages(conversation.messages as Message[]);
+            setSessionId(conversationId);
 
             if (conversation.scenarios) {
               setCurrentScenario(conversation.scenarios as Scenario);
-
-              if (
-                conversation.messages &&
-                (conversation.messages as Message[]).length >= 4
-              ) {
-                generateSimulatedFeedback(conversation.messages as Message[]);
+              if ((conversation.messages as Message[]).length >= 4) {
+                await generateFeedback();
               }
             }
           }
@@ -76,7 +68,7 @@ export default function SimulatorPage() {
           setScenarios(scenariosData);
 
           if (scenarioId) {
-            const scenario: Scenario | null =
+            const scenario =
               scenariosData.find((s: Scenario) => s.id === scenarioId) ||
               (await getScenarioById(scenarioId));
             if (scenario) {
@@ -99,31 +91,60 @@ export default function SimulatorPage() {
   }, [user, scenarioId, conversationId]);
 
   useEffect(() => {
-    if (currentScenario && messages.length === 0) {
+    if (currentScenario && messages.length === 0 && !conversationId) {
       resetConversation();
     }
-  }, [currentScenario, messages.length]);
+  }, [currentScenario, conversationId]);
 
-  const resetConversation = () => {
-    if (currentScenario) {
-      setMessages([
-        {
-          id: "1",
-          role: "assistant",
-          content: `Hello, I'm ${currentScenario.employee_name}. I'm here for our meeting. What did you want to discuss?`,
-        },
-      ]);
-      setFeedback(null);
-      setActiveTab("conversation");
+  const resetConversation = async () => {
+    if (!currentScenario) return;
+
+    const newSessionId = uuidv4();
+    setSessionId(newSessionId);
+    setMessages([]);
+    setFeedback(null);
+    setActiveTab("conversation");
+    setIsChatEnded(false);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "",
+          sessionId: newSessionId,
+          employeeName: currentScenario.employee_name,
+          context: currentScenario.context,
+        }),
+      });
+      const data = await response.json();
+
+      if (data.response) {
+        setMessages([
+          {
+            id: Date.now().toString(),
+            role: "assistant",
+            content: data.response,
+          },
+        ]);
+      } else {
+        console.error("Error:", data.error);
+      }
+    } catch (error) {
+      console.error("Error starting conversation:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleSendMessage = async (input: string) => {
     if (input.trim() === "") return;
+    if (!currentScenario || !sessionId) return;
 
-    const userMessage = {
+    const userMessage: Message = {
       id: Date.now().toString(),
-      role: "user" as const,
+      role: "user",
       content: input,
     };
 
@@ -131,125 +152,71 @@ export default function SimulatorPage() {
     setIsLoading(true);
 
     try {
-      setTimeout(() => {
-        let responseOptions: string[] = [];
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: input,
+          sessionId,
+          employeeName: currentScenario.employee_name,
+          context: currentScenario.context,
+        }),
+      });
+      const data = await response.json();
 
-        if (currentScenario?.title.toLowerCase().includes("performance")) {
-          responseOptions = [
-            "I understand there are concerns about my deadlines. I've been struggling with some technical challenges.",
-            "I didn't realize my communication was causing issues. Could you give me specific examples?",
-            "I appreciate the feedback about my technical work. I'll try to improve on the other areas.",
-            "What specific improvements would you like to see from me in the coming months?",
-            "I've been dealing with some personal issues, but I should have communicated that better.",
-          ];
-        } else if (currentScenario?.title.toLowerCase().includes("feedback")) {
-          responseOptions = [
-            "I wasn't aware my communication style was coming across that way to clients.",
-            "I'm just trying to be efficient with everyone's time. Do clients really find it abrupt?",
-            "Could you give me an example of when this happened? I'd like to understand better.",
-            "I appreciate you bringing this to my attention. How do you suggest I improve?",
-            "I've always been direct in my communication. Is that really a problem?",
-          ];
-        } else if (
-          currentScenario?.title.toLowerCase().includes("termination")
-        ) {
-          responseOptions = [
-            "I'm shocked. I thought my performance has been good.",
-            "Can you tell me more about this restructuring? Why my position specifically?",
-            "What kind of severance package will be offered?",
-            "Is there any possibility of being moved to another department instead?",
-            "How much time do I have before my last day?",
-          ];
-        } else {
-          responseOptions = [
-            "I understand your perspective. Can we discuss specific examples?",
-            "That's a fair point. I've been trying to improve in that area.",
-            "I appreciate your feedback. What specific changes would you like to see?",
-            "I hadn't thought about it that way. Could you elaborate?",
-            "I see what you mean. Let me share my perspective as well.",
-          ];
-        }
-
-        const responseText =
-          responseOptions[Math.floor(Math.random() * responseOptions.length)];
-
-        const assistantMessage = {
+      if (data.response) {
+        const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
-          role: "assistant" as const,
-          content: responseText,
+          role: "assistant",
+          content: data.response,
         };
-
         setMessages((prev) => [...prev, assistantMessage]);
-
-        if (messages.length >= 3) {
-          generateSimulatedFeedback([
-            ...messages,
-            userMessage,
-            assistantMessage,
-          ]);
-        }
-
-        setIsLoading(false);
-      }, 1000);
+      } else if (data.feedback) {
+        setFeedback(data.feedback);
+        setIsChatEnded(true);
+        setActiveTab("feedback");
+      } else {
+        console.error("Error:", data.error);
+      }
     } catch (error) {
-      console.error("Error generating response:", error);
+      console.error("Error sending message:", error);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  const generateSimulatedFeedback = async (conversationMessages: Message[]) => {
-    const conversations = conversationMessages.map(
-      (msg) => `${msg.role}: ${msg.content}`
-    );
+  const generateFeedback = async () => {
+    if (!currentScenario || !sessionId) return;
 
-    const prompt = `
-      Based on the interaction with user and assistant(ai), provide the ONE feedback for the whole conversation as per the example below in a object format:
-      const objectFormat = {
-      clarity: Math.floor(Math.random() * 30) + 70, // Random number between 70-100
-      empathy: Math.floor(Math.random() * 30) + 70,
-      effectiveness: Math.floor(Math.random() * 30) + 70,
-      strengths: [
-        "You asked good clarifying questions",
-        "You maintained a professional tone throughout",
-        "You provided specific examples to support your points",
-      ],
-      improvements: [
-        "Consider acknowledging emotions more explicitly",
-        "Try to establish clearer next steps and expectations",
-        "Provide more specific feedback with concrete examples",
-      ],
-      summary:
-        "Overall, you demonstrated good communication skills with room for improvement in emotional intelligence and setting clear expectations. Continue practicing active listening and empathetic responses.",
-    };
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: "End conversation",
+          sessionId,
+          employeeName: currentScenario.employee_name,
+          context: currentScenario.context,
+        }),
+      });
+      const data = await response.json();
 
-      Conversation for reference: ${conversations}
-      `;
-    const feedback = await getFeedback(prompt);
-
-    console.log(feedback);
-
-    const simulatedFeedback: Feedback = {
-      clarity: Math.floor(Math.random() * 30) + 70, // Random number between 70-100
-      empathy: Math.floor(Math.random() * 30) + 70,
-      effectiveness: Math.floor(Math.random() * 30) + 70,
-      strengths: [
-        "You asked good clarifying questions",
-        "You maintained a professional tone throughout",
-        "You provided specific examples to support your points",
-      ],
-      improvements: [
-        "Consider acknowledging emotions more explicitly",
-        "Try to establish clearer next steps and expectations",
-        "Provide more specific feedback with concrete examples",
-      ],
-      summary:
-        "Overall, you demonstrated good communication skills with room for improvement in emotional intelligence and setting clear expectations. Continue practicing active listening and empathetic responses.",
-    };
-
-    setFeedback(simulatedFeedback);
+      if (data.feedback) {
+        setFeedback(data.feedback);
+        setIsChatEnded(true);
+        setActiveTab("feedback");
+      } else {
+        console.error("Error:", data.error);
+      }
+    } catch (error) {
+      console.error("Error generating feedback:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleLoadConversation = (conversation: SavedConversation) => {
+  const handleLoadConversation = async (conversation: SavedConversation) => {
     const scenario = scenarios.find((s) => s.id === conversation.scenario_id);
     if (scenario) {
       setCurrentScenario(scenario);
@@ -258,14 +225,15 @@ export default function SimulatorPage() {
     }
 
     setMessages(conversation.messages);
+    setSessionId(conversation.id);
+    setIsChatEnded(false);
+    setActiveTab("conversation");
 
     if (conversation.messages.length >= 4) {
-      generateSimulatedFeedback(conversation.messages);
+      await generateFeedback();
     } else {
       setFeedback(null);
     }
-
-    setActiveTab("conversation");
   };
 
   if (isLoadingScenarios) {
@@ -345,6 +313,7 @@ export default function SimulatorPage() {
               </TabsList>
               <TabsContent value="conversation" className="mt-4">
                 <ConversationPanel
+                  isChatEnded={isChatEnded}
                   messages={messages}
                   isLoading={isLoading}
                   employeeAvatar={currentScenario.employee_avatar}
