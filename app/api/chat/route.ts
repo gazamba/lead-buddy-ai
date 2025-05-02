@@ -4,6 +4,7 @@ import { StringOutputParser } from "@langchain/core/output_parsers";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { Feedback } from "@/lib/types";
 
 // System prompt template
 const getSystemPrompt = (employeeName: string, context: string) => `
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
   try {
     const { prompt: input, sessionId, employeeName, context } = await req.json();
     const supabase = await createClient();
-    // Validate inputs
+    const user = await supabase.auth.getUser();
     if (!sessionId || typeof sessionId !== "string") {
       console.error("Validation error: Invalid session ID", { sessionId });
       return NextResponse.json(
@@ -67,7 +68,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch or initialize conversation history from Supabase
+    if(!user){
+        
+    }
+
     let { data: conversation, error } = await supabase
       .from("conversations")
       .select("messages, employee_name, context")
@@ -79,42 +83,27 @@ export async function POST(req: NextRequest) {
       throw new Error(`Failed to fetch conversation: ${error.message}`);
     }
 
-    // If no conversation exists, create a new one
     if (!conversation) {
-      if (input) {
-        console.warn("Attempted to send message to non-existent conversation", { sessionId, input });
-        return NextResponse.json(
-          { error: "Conversation not found. Please start a new conversation." },
-          { status: 404 }
-        );
-      }
+    //   if (input) {
+    //     console.warn("Attempted to send message to non-existent conversation", { sessionId, input });
+    //     return NextResponse.json(
+    //       { error: "Conversation not found. Please start a new conversation." },
+    //       { status: 404 }
+    //     );
+    //   }
 
       const systemPrompt = getSystemPrompt(employeeName, context);
       const initialMessages = [
         { role: "system", content: systemPrompt },
         { role: "assistant", content: `Hello, I'm ${employeeName}. I'm here for our meeting. What did you want to discuss?` },
       ];
-      const { error: insertError, data: insertData } = await supabase
-        .from("conversations")
-        .insert({
-          session_id: sessionId,
-          employee_name: employeeName,
-          context,
-          messages: initialMessages,
-        })
-        .select()
-        .single();
 
-      if (insertError) {
-        console.error("Supabase insert error:", insertError);
-        throw new Error(`Failed to create conversation: ${insertError.message}`);
-      }
 
-      console.log("New conversation created", { sessionId, employeeName, insertData });
+
+      console.log("New conversation created", { sessionId, employeeName });
       return NextResponse.json({ response: initialMessages[1].content });
     }
 
-    // Validate input for existing conversations
     if (!input || typeof input !== "string") {
       console.error("Validation error: Invalid input", { input });
       return NextResponse.json(
@@ -123,13 +112,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Initialize the model
     const model = new ChatOpenAI({
       model: "gpt-4.1",
       temperature: 0.2,
     });
 
-    // Convert stored messages to LangChain message objects
     const messages = conversation.messages.map((msg: { role: string; content: string }) => {
       if (msg.role === "system") return new SystemMessage(msg.content);
       if (msg.role === "user") return new HumanMessage(msg.content);
@@ -137,7 +124,6 @@ export async function POST(req: NextRequest) {
       throw new Error(`Invalid message role: ${msg.role}`);
     });
 
-    // Check if the user wants to end the conversation
     if (input.toLowerCase().includes("end conversation")) {
       const conversationText = conversation.messages
         .filter((msg: { role: string }) => msg.role !== "system")
@@ -147,7 +133,7 @@ export async function POST(req: NextRequest) {
       const feedbackChain = FEEDBACK_PROMPT.pipe(model).pipe(new StringOutputParser());
       const feedbackResult = await feedbackChain.invoke({ conversation: conversationText });
 
-      let feedbackJson;
+      let feedbackJson: Feedback;
       try {
         feedbackJson = JSON.parse(feedbackResult);
       } catch (parseError) {
@@ -161,17 +147,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ feedback: feedbackJson });
     }
 
-    // Add the new user message
     messages.push(new HumanMessage(input));
 
-    // Create a prompt with the full conversation history
     const prompt = ChatPromptTemplate.fromMessages(messages);
 
-    // Set up the chain: prompt -> model -> parser
     const parser = new StringOutputParser();
     const chain = prompt.pipe(model).pipe(parser);
 
-    // Invoke the chain
     let result;
     try {
       result = await chain.invoke({});
@@ -183,14 +165,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Update the conversation history in Supabase
     const updatedMessages = [
       ...conversation.messages,
       { role: "user", content: input },
       { role: "assistant", content: result },
     ];
 
-    // Trim history to avoid token limits
     const maxMessages = 10;
     const trimmedMessages =
       updatedMessages.length > maxMessages
