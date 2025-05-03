@@ -30,7 +30,7 @@ export async function ScenariosSection() {
               <p className="text-gray-500">{scenario.description}</p>
 
               <Link
-                href={`/simulator?scenario=${scenario.title
+                href={`/simulator?scenario=${scenario.id
                   .toLowerCase()
                   .replace(/\s+/g, "-")}`}
               >

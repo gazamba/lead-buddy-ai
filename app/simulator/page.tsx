@@ -23,7 +23,7 @@ import { v4 as uuidv4 } from "uuid";
 
 export default function SimulatorPage() {
   const searchParams = useSearchParams();
-  const scenarioId = searchParams.get("id");
+  const scenarioId = searchParams.get("scenario");
   const conversationId = searchParams.get("conversation");
 
   const { user } = useAuth();
@@ -55,7 +55,6 @@ export default function SimulatorPage() {
           if (conversation) {
             setMessages(conversation.messages as Message[]);
             setSessionId(conversationId);
-
             if (conversation.scenarios) {
               setCurrentScenario(conversation.scenarios as Scenario);
               if ((conversation.messages as Message[]).length >= 4) {
@@ -66,19 +65,14 @@ export default function SimulatorPage() {
         } else {
           const scenariosData = await getScenarios();
           setScenarios(scenariosData);
+          let selectedScenario: Scenario | null = null;
 
           if (scenarioId) {
-            const scenario =
+            selectedScenario =
               scenariosData.find((s: Scenario) => s.id === scenarioId) ||
               (await getScenarioById(scenarioId));
-            if (scenario) {
-              setCurrentScenario(scenario);
-            } else {
-              setCurrentScenario(scenariosData[0] || null);
-            }
-          } else {
-            setCurrentScenario(scenariosData[0] || null);
           }
+          setCurrentScenario(selectedScenario || scenariosData[0] || null);
         }
       } catch (error) {
         console.error("Error loading data:", error);
@@ -88,18 +82,24 @@ export default function SimulatorPage() {
     };
 
     loadData();
-  }, [user, scenarioId, conversationId]);
+  }, [scenarioId, conversationId]); // Add dependencies
 
+  // Reset conversation when currentScenario changes and no conversationId is provided
   useEffect(() => {
-    if (currentScenario && messages.length === 0 && !conversationId) {
+    if (currentScenario && !conversationId) {
       resetConversation();
     }
   }, [currentScenario, conversationId]);
 
   const resetConversation = async () => {
-    if (!currentScenario) return;
+    if (!currentScenario) {
+      console.error("No current scenario available");
+      return;
+    }
 
     const newSessionId = uuidv4();
+    console.log("Starting new conversation with sessionId:", newSessionId);
+
     setSessionId(newSessionId);
     setMessages([]);
     setFeedback(null);
@@ -112,15 +112,16 @@ export default function SimulatorPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: "",
           sessionId: newSessionId,
           employeeName: currentScenario.employee_name,
           context: currentScenario.context,
+          scenarioId: currentScenario.id,
         }),
       });
       const data = await response.json();
 
       if (data.response) {
+        console.log(data.response);
         setMessages([
           {
             id: Date.now().toString(),
@@ -129,7 +130,7 @@ export default function SimulatorPage() {
           },
         ]);
       } else {
-        console.error("Error:", data.error);
+        console.error("API error:", data.error);
       }
     } catch (error) {
       console.error("Error starting conversation:", error);
@@ -139,8 +140,7 @@ export default function SimulatorPage() {
   };
 
   const handleSendMessage = async (input: string) => {
-    if (input.trim() === "") return;
-    if (!currentScenario || !sessionId) return;
+    if (input.trim() === "" || !currentScenario || !sessionId) return;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -160,6 +160,7 @@ export default function SimulatorPage() {
           sessionId,
           employeeName: currentScenario.employee_name,
           context: currentScenario.context,
+          scenarioId: currentScenario.id,
         }),
       });
       const data = await response.json();
@@ -198,6 +199,7 @@ export default function SimulatorPage() {
           sessionId,
           employeeName: currentScenario.employee_name,
           context: currentScenario.context,
+          scenarioId: currentScenario.id,
         }),
       });
       const data = await response.json();

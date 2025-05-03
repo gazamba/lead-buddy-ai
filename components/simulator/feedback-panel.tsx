@@ -1,114 +1,141 @@
-"use client"
+"use client";
 
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 
 interface Feedback {
-  clarity: number
-  empathy: number
-  effectiveness: number
-  strengths: string[]
-  improvements: string[]
-  summary: string
+  sbi_usage: { score: number; description: string };
+  action_plan: { score: number; description: string };
+  balance: { score: number; description: string };
+  overall: string[];
 }
 
 interface FeedbackPanelProps {
-  feedback: Feedback | null
-  scenarioParam: string
-  onPracticeAgain: () => void
+  feedback: Feedback | null;
+  scenarioParam: string;
+  onPracticeAgain: () => void;
 }
 
-export function FeedbackPanel({ feedback, scenarioParam, onPracticeAgain }: FeedbackPanelProps) {
+export function FeedbackPanel({
+  feedback,
+  scenarioParam,
+  onPracticeAgain,
+}: FeedbackPanelProps) {
   if (!feedback) {
     return (
-      <Card className="h-[600px] flex items-center justify-center">
+      <Card className="h-[600px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
         <CardContent>
-          <p className="text-center text-gray-500">
-            Continue the conversation to receive feedback on your communication.
+          <p className="text-center text-gray-500 dark:text-gray-400 text-lg font-medium">
+            Keep the conversation flowing to unlock your feedback! 🚀
           </p>
         </CardContent>
       </Card>
-    )
+    );
   }
 
   return (
-    <Card className="h-[600px] overflow-auto">
-      <CardHeader>
-        <CardTitle>Conversation Feedback</CardTitle>
-        <CardDescription>Analysis of your communication style and effectiveness</CardDescription>
+    <Card className="h-[600px] overflow-auto bg-white dark:bg-gray-800 shadow-xl rounded-xl">
+      <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-xl">
+        <CardTitle className="text-2xl font-bold">
+          Your Feedback Report
+        </CardTitle>
+        <CardDescription className="text-blue-100">
+          Insights to level up your mentoring skills! 🎯
+        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-4">
+      <CardContent className="space-y-6 p-6">
+        <div className="space-y-6">
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Clarity</span>
-              <span className="text-sm text-gray-500">{feedback.clarity}%</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                SBI Model Usage
+              </span>
+              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                {feedback.sbi_usage.score}%
+              </span>
             </div>
-            <Progress value={feedback.clarity} className="h-2" />
+            <Progress
+              value={feedback.sbi_usage.score}
+              className="h-2 bg-gray-200 dark:bg-gray-700"
+            />
+            <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-md">
+              {feedback.sbi_usage.description}
+            </p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Empathy</span>
-              <span className="text-sm text-gray-500">{feedback.empathy}%</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Action Plan Clarity
+              </span>
+              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                {feedback.action_plan.score}%
+              </span>
             </div>
-            <Progress value={feedback.empathy} className="h-2" />
+            <Progress
+              value={feedback.action_plan.score}
+              className="h-2 bg-gray-200 dark:bg-gray-700"
+            />
+            <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-md">
+              {feedback.action_plan.description}
+            </p>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Effectiveness</span>
-              <span className="text-sm text-gray-500">{feedback.effectiveness}%</span>
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Feedback Balance
+              </span>
+              <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                {feedback.balance.score}%
+              </span>
             </div>
-            <Progress value={feedback.effectiveness} className="h-2" />
+            <Progress
+              value={feedback.balance.score}
+              className="h-2 bg-gray-200 dark:bg-gray-700"
+            />
+            <p className="text-sm text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-900 p-3 rounded-md">
+              {feedback.balance.description}
+            </p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div>
-            <h3 className="font-medium mb-2">Strengths</h3>
+            <h3 className="font-medium text-lg text-gray-800 dark:text-gray-100 mb-2">
+              Key Takeaways
+            </h3>
             <div className="space-y-2">
-              {feedback.strengths.map((strength, index) => (
+              {feedback.overall.map((item, index) => (
                 <div key={index} className="flex items-start gap-2">
                   <Badge
                     variant="outline"
-                    className="bg-green-50 dark:bg-green-900 text-green-700 dark:text-green-100 border-green-200 dark:border-green-800"
+                    className="bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-100 border-blue-200 dark:border-blue-800"
                   >
-                    Strength
+                    Insight
                   </Badge>
-                  <p>{strength}</p>
+                  <p className="text-gray-700 dark:text-gray-300">{item}</p>
                 </div>
               ))}
             </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium mb-2">Areas for Improvement</h3>
-            <div className="space-y-2">
-              {feedback.improvements.map((improvement, index) => (
-                <div key={index} className="flex items-start gap-2">
-                  <Badge
-                    variant="outline"
-                    className="bg-amber-50 dark:bg-amber-900 text-amber-700 dark:text-amber-100 border-amber-200 dark:border-amber-800"
-                  >
-                    Improve
-                  </Badge>
-                  <p>{improvement}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h3 className="font-medium mb-2">Summary</h3>
-            <p className="text-gray-700">{feedback.summary}</p>
           </div>
         </div>
 
-        <div className="pt-4">
-          <Button onClick={onPracticeAgain}>Practice Again</Button>
+        <div className="pt-4 flex justify-end">
+          <Button
+            onClick={onPracticeAgain}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200"
+          >
+            Practice Again 🔥
+          </Button>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
