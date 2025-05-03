@@ -8,20 +8,18 @@ export async function POST(req: NextRequest) {
   try {
     const { prompt: input } = await req.json();
     const model = new ChatOpenAI({
-      model: "gpt-4.1"
+      model: "gpt-4.1",
+      temperature: 0.4
     });
 
-    const prompt = ChatPromptTemplate.fromMessages([
-      // new SystemMessage("You are an expert leadership coach"),
+    const messages = [
+      new SystemMessage("You are an expert leadership coach"),
       new HumanMessage(input),
-    ]);
+    ];
+    console.log(messages)
+    const result = await model.invoke(messages);
 
-    const parser = new StringOutputParser();
-    const chain = prompt.pipe(model).pipe(parser);
-
-    const result = await chain.invoke(input);
-
-    return NextResponse.json(result);
+    return NextResponse.json(result.content);
   } catch (error) {
     return NextResponse.json(
       { error: "Unable to connect to OpenAI services" },
