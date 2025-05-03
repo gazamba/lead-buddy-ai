@@ -27,7 +27,6 @@ Return the feedback in this JSON format:
 }
 `;
 
-// Feedback prompt for analyzing the conversation
 const FEEDBACK_PROMPT = ChatPromptTemplate.fromMessages([
   new SystemMessage(`
 Analyze the following conversation where a mentor provides feedback to an employee. Evaluate the mentor's performance based on:
@@ -52,64 +51,30 @@ export async function POST(req: NextRequest) {
   try {
     const { prompt: input, sessionId, employeeName, context } = await req.json();
     const supabase = await createClient();
-    const user = await supabase.auth.getUser();
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData?.user?.id;
+
+    if (!userId) {
+      return NextResponse.json({ error: "User not authenticated" }, { status: 401 });
+    }
+
     if (!sessionId || typeof sessionId !== "string") {
-      console.error("Validation error: Invalid session ID", { sessionId });
-      return NextResponse.json(
-        { error: "Invalid session ID" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Invalid session ID" }, { status: 400 });
     }
+
     if (!employeeName || typeof employeeName !== "string" || !context || typeof context !== "string") {
-      console.error("Validation error: Missing employeeName or context", { employeeName, context });
-      return NextResponse.json(
-        { error: "Employee name and context are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Employee name and context are required" }, { status: 400 });
     }
 
-    if(!user){
-        
-    }
-
-    let { data: conversation, error } = await supabase
+    const { data: conversation, error: fetchError } = await supabase
       .from("conversations")
-      .select("messages, employee_name, context")
+      .select("*")
       .eq("session_id", sessionId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== "PGRST116") {
-      console.error("Supabase fetch error:", error);
-      throw new Error(`Failed to fetch conversation: ${error.message}`);
-    }
-
-    if (!conversation) {
-    //   if (input) {
-    //     console.warn("Attempted to send message to non-existent conversation", { sessionId, input });
-    //     return NextResponse.json(
-    //       { error: "Conversation not found. Please start a new conversation." },
-    //       { status: 404 }
-    //     );
-    //   }
-
-      const systemPrompt = getSystemPrompt(employeeName, context);
-      const initialMessages = [
-        { role: "system", content: systemPrompt },
-        { role: "assistant", content: `Hello, I'm ${employeeName}. I'm here for our meeting. What did you want to discuss?` },
-      ];
-
-
-
-      console.log("New conversation created", { sessionId, employeeName });
-      return NextResponse.json({ response: initialMessages[1].content });
-    }
-
-    if (!input || typeof input !== "string") {
-      console.error("Validation error: Invalid input", { input });
-      return NextResponse.json(
-        { error: "Input is required for ongoing conversations" },
-        { status: 400 }
-      );
+    if (fetchError) {
+      console.error("Error fetching conversation:", fetchError);
+      throw new Error("Failed to fetch conversation");
     }
 
     const model = new ChatOpenAI({
@@ -117,17 +82,28 @@ export async function POST(req: NextRequest) {
       temperature: 0.2,
     });
 
-    const messages = conversation.messages.map((msg: { role: string; content: string }) => {
-      if (msg.role === "system") return new SystemMessage(msg.content);
-      if (msg.role === "user") return new HumanMessage(msg.content);
-      if (msg.role === "assistant") return new AIMessage(msg.content);
-      throw new Error(`Invalid message role: ${msg.role}`);
-    });
+    let messages: Array<SystemMessage | HumanMessage | AIMessage> = [];
+
+    if (!conversation) {
+      const systemMessage = new SystemMessage(getSystemPrompt(employeeName, context));
+      messages = [systemMessage];
+    } else {
+      messages = conversation.messages.map((msg: { role: string; content: string }) => {
+        if (msg.role === "system") return new SystemMessage(msg.content);
+        if (msg.role === "user") return new HumanMessage(msg.content);
+        if (msg.role === "assistant") return new AIMessage(msg.content);
+        throw new Error(`Invalid message role: ${msg.role}`);
+      });
+    }
+
+    if (!input || typeof input !== "string") {
+      return NextResponse.json({ error: "Input is required" }, { status: 400 });
+    }
 
     if (input.toLowerCase().includes("end conversation")) {
-      const conversationText = conversation.messages
-        .filter((msg: { role: string }) => msg.role !== "system")
-        .map((msg: { role: string; content: string }) => `${msg.role}: ${msg.content}`)
+      const conversationText = messages
+        .filter((msg) => !(msg instanceof SystemMessage))
+        .map((msg) => `${msg._getType()}: ${msg.content}`)
         .join("\n");
 
       const feedbackChain = FEEDBACK_PROMPT.pipe(model).pipe(new StringOutputParser());
@@ -142,32 +118,22 @@ export async function POST(req: NextRequest) {
       }
 
       await supabase.from("conversations").delete().eq("session_id", sessionId);
-      console.log("Conversation ended and deleted", { sessionId });
-
       return NextResponse.json({ feedback: feedbackJson });
     }
 
     messages.push(new HumanMessage(input));
 
     const prompt = ChatPromptTemplate.fromMessages(messages);
-
     const parser = new StringOutputParser();
     const chain = prompt.pipe(model).pipe(parser);
 
-    let result;
-    try {
-      result = await chain.invoke({});
-    } catch (modelError) {
-      console.error("Model invocation error:", modelError);
-      return NextResponse.json(
-        { error: "Failed to generate response from model" },
-        { status: 500 }
-      );
-    }
+    const result = await chain.invoke({});
 
     const updatedMessages = [
-      ...conversation.messages,
-      { role: "user", content: input },
+      ...messages.map((msg) => ({
+        role: msg._getType(),
+        content: msg.content,
+      })),
       { role: "assistant", content: result },
     ];
 
@@ -177,19 +143,35 @@ export async function POST(req: NextRequest) {
         ? [updatedMessages[0], ...updatedMessages.slice(-maxMessages + 1)]
         : updatedMessages;
 
-    const { error: updateError, data: updateData } = await supabase
-      .from("conversations")
-      .update({ messages: trimmedMessages })
-      .eq("session_id", sessionId)
-      .select()
-      .single();
+    let conversationId = conversation?.id;
+    if (!conversationId) {
+      const { data: newConversation, error: insertError } = await supabase
+        .from("conversations")
+        .insert({
+          session_id: sessionId,
+          user_id: userId,
+          messages: trimmedMessages,
+          created_at: new Date().toISOString(),
+        })
+        .select()
+        .maybeSingle();
 
-    if (updateError) {
-      console.error("Supabase update error:", updateError);
-      throw new Error(`Failed to update conversation: ${updateError.message}`);
+      if (insertError || !newConversation) {
+        throw new Error("Failed to create new conversation");
+      }
+
+      conversationId = newConversation.id;
+    } else {
+      const { error: updateError } = await supabase
+        .from("conversations")
+        .update({ messages: trimmedMessages })
+        .eq("id", conversationId);
+
+      if (updateError) {
+        throw new Error("Failed to update existing conversation");
+      }
     }
 
-    console.log("Conversation updated", { sessionId, newMessage: result, updateData });
     return NextResponse.json({ response: result });
   } catch (error) {
     console.error("API error:", error);
