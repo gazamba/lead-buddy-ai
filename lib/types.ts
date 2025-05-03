@@ -5,12 +5,10 @@ export interface Message {
 }
 
 export interface Feedback {
-  clarity: number;
-  empathy: number;
-  effectiveness: number;
-  strengths: string[];
-  improvements: string[];
-  summary: string;
+  sbi_usage: { score: number; description: string };
+  action_plan: { score: number; description: string };
+  balance: { score: number; description: string };
+  overall: string[];
 }
 
 export interface Scenario {
