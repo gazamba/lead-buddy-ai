@@ -53,7 +53,7 @@ Return the feedback as a valid JSON object, wrapped in \`\`\`json\`\`\` code fen
 }
 \`\`\`
 
-Ensure the response contains only the JSON object inside the code fences, with no additional text or comments. If no conversation is provided, return an empty JSON object:
+Ensure the response contains only the JSON object inside the code fences, with no additional text or comments. If no conversation is provided or the conversation is too short to analyze, return an empty JSON object:
 \`\`\`json
 {}
 \`\`\`
@@ -62,6 +62,30 @@ Conversation:
 {{conversation}}
 `),
 ]);
+
+// Validate if human messages contain substantive feedback
+const isSubstantiveFeedback = (messages: HumanMessage[]): boolean => {
+  const feedbackKeywords = [
+    "situation",
+    "behavior",
+    "impact",
+    "plan",
+    "suggest",
+    "action",
+    "improve",
+    "strategy",
+    "feedback",
+    "deadline",
+    "priority",
+    "workload",
+  ];
+  return messages.some((msg) => {
+    const content = typeof msg.content === "string" ? msg.content.toLowerCase() : "";
+    const wordCount = content.split(/\s+/).length;
+    const hasKeywords = feedbackKeywords.some((keyword) => content.includes(keyword));
+    return wordCount > 10 || (wordCount > 5 && hasKeywords);
+  });
+};
 
 export async function POST(req: NextRequest) {
   try {
@@ -94,6 +118,8 @@ export async function POST(req: NextRequest) {
       throw new Error(`Failed to fetch conversation: ${fetchError.message}`);
     }
 
+    console.log("Fetched conversation:", conversation);
+
     const model = new ChatOpenAI({
       model: "gpt-4.1",
       temperature: 0.2,
@@ -113,10 +139,10 @@ export async function POST(req: NextRequest) {
 
       messages.push(new AIMessage(initialResult));
     } else {
-      console.log("Existing conversation found:", conversation);
+      console.log("Existing conversation messages:", conversation.messages);
       messages = conversation.messages.map((msg: { role: string; content: string }) => {
         if (msg.role === "system") return new SystemMessage(msg.content);
-        if (msg.role === "user") return new HumanMessage(msg.content);
+        if (msg.role === "human") return new HumanMessage(msg.content);
         if (msg.role === "ai") return new AIMessage(msg.content);
         throw new Error(`Invalid message role: ${msg.role}`);
       });
@@ -124,10 +150,66 @@ export async function POST(req: NextRequest) {
 
     if (typeof input === "string" && input.toLowerCase().includes("end conversation")) {
       console.log("Ending conversation, generating feedback");
+      console.log("Messages before feedback:", messages);
       const conversationText = messages
         .filter((msg) => !(msg instanceof SystemMessage))
         .map((msg) => `${msg._getType()}: ${msg.content}`)
         .join("\n");
+      console.log("Conversation text:", conversationText);
+
+      const nonSystemMessages = messages.filter((msg) => !(msg instanceof SystemMessage));
+      const humanMessages = nonSystemMessages.filter((msg) => msg instanceof HumanMessage) as HumanMessage[];
+      console.log("Non-system messages:", nonSystemMessages.length, "Human messages:", humanMessages.length);
+
+      if (humanMessages.length === 0) {
+        console.log("No human messages found, returning default feedback");
+        const defaultFeedback = {
+          feedback: {
+            sbi_usage: {
+              score: 0,
+              description: `No mentor feedback provided to evaluate SBI usage. Please respond to ${employeeName}'s concerns before ending the conversation.`,
+            },
+            action_plan: {
+              score: 0,
+              description: "No action plan provided due to lack of mentor feedback.",
+            },
+            balance: {
+              score: 0,
+              description: "No mentor feedback given to assess balance of praise and constructive feedback.",
+            },
+            overall: [
+              `To receive feedback, provide at least one response to ${employeeName}'s concerns using the SBI model (Situation, Behavior, Impact).`,
+            ],
+          },
+        };
+        console.log("Returning default feedback:", defaultFeedback);
+        return NextResponse.json(defaultFeedback);
+      }
+
+      if (!isSubstantiveFeedback(humanMessages)) {
+        console.log("Human messages lack substantive feedback, returning default feedback");
+        const defaultFeedback = {
+          feedback: {
+            sbi_usage: {
+              score: 0,
+              description: `Your responses were too brief or off-topic to evaluate SBI usage. Please provide specific feedback addressing ${employeeName}'s concerns, using the SBI model (Situation, Behavior, Impact).`,
+            },
+            action_plan: {
+              score: 0,
+              description: `No actionable steps were provided. Suggest specific strategies to help ${employeeName} improve.`,
+            },
+            balance: {
+              score: 0,
+              description: "No praise or constructive feedback was given to assess balance. Include both in your responses.",
+            },
+            overall: [
+              `To receive a full evaluation, provide detailed feedback to ${employeeName} using the SBI model, include an action plan, and balance praise with constructive feedback. For example, describe a specific situation, the behavior observed, and its impact.`,
+            ],
+          },
+        };
+        console.log("Returning default feedback:", defaultFeedback);
+        return NextResponse.json(defaultFeedback);
+      }
 
       const feedbackChain = FEEDBACK_PROMPT.pipe(model).pipe(new StringOutputParser());
       const feedbackResult = await feedbackChain.invoke({ conversation: conversationText });
@@ -145,6 +227,31 @@ export async function POST(req: NextRequest) {
       } catch (parseError) {
         console.error("Failed to parse feedback JSON:", parseError);
         throw new Error(`Invalid feedback format: ${parseError}`);
+      }
+
+      if (Object.keys(feedbackJson).length === 0 || !feedbackJson.sbi_usage?.description) {
+        console.log("Model returned empty or incomplete feedback, returning default feedback");
+        const defaultFeedback = {
+          feedback: {
+            sbi_usage: {
+              score: 0,
+              description: `Your responses did not provide enough detail to evaluate SBI usage. Please use the SBI model by describing a specific situation, the behavior observed, and its impact.`,
+            },
+            action_plan: {
+              score: 0,
+              description: `No actionable steps were provided. Include specific strategies to help ${employeeName} address their concerns.`,
+            },
+            balance: {
+              score: 0,
+              description: "No praise or constructive feedback was given to assess balance. Ensure your responses include both.",
+            },
+            overall: [
+              `To receive a full evaluation, provide detailed feedback to ${employeeName} using the SBI model, suggest an action plan, and balance praise with constructive feedback.`,
+            ],
+          },
+        };
+        console.log("Returning default feedback:", defaultFeedback);
+        return NextResponse.json(defaultFeedback);
       }
 
       const transformedFeedback: Feedback = {
@@ -177,24 +284,46 @@ export async function POST(req: NextRequest) {
       const parser = new StringOutputParser();
       const chain = prompt.pipe(model).pipe(parser);
       result = await chain.invoke({});
+      console.log("New human message:", input);
+      console.log("AI response:", result);
     } else if (!conversation) {
       result = messages[messages.length - 1].content as string;
     } else {
       return NextResponse.json({ response: "" });
     }
 
-    const updatedMessages = conversation
-      ? [
-          ...messages.map((msg) => ({
-            role: msg._getType(),
-            content: msg.content,
-          })),
-          ...(typeof input === "string" && input.trim() ? [{ role: "ai", content: result }] : []),
-        ]
-      : messages.map((msg) => ({
-          role: msg._getType(),
-          content: msg.content,
-        }));
+    // Refetch conversation to prevent overwrites
+    console.log("Refetching conversation before update for sessionId:", sessionId);
+    const { data: latestConversation, error: refetchError } = await supabase
+      .from("conversations")
+      .select("*")
+      .eq("session_id", sessionId)
+      .maybeSingle();
+
+    if (refetchError) {
+      console.error("Error refetching conversation:", refetchError);
+      throw new Error(`Failed to refetch conversation: ${refetchError.message}`);
+    }
+
+    let latestMessages = messages;
+    if (latestConversation) {
+      console.log("Latest conversation messages:", latestConversation.messages);
+      latestMessages = latestConversation.messages.map((msg: { role: string; content: string }) => {
+        if (msg.role === "system") return new SystemMessage(msg.content);
+        if (msg.role === "human") return new HumanMessage(msg.content);
+        if (msg.role === "ai") return new AIMessage(msg.content);
+        throw new Error(`Invalid message role: ${msg.role}`);
+      });
+      if (typeof input === "string" && input.trim()) {
+        latestMessages.push(new HumanMessage(input));
+        latestMessages.push(new AIMessage(result));
+      }
+    }
+
+    const updatedMessages = latestMessages.map((msg) => ({
+      role: msg._getType(),
+      content: msg.content,
+    }));
 
     const maxMessages = 10;
     const trimmedMessages =
@@ -202,7 +331,9 @@ export async function POST(req: NextRequest) {
         ? [updatedMessages[0], ...updatedMessages.slice(-maxMessages + 1)]
         : updatedMessages;
 
-    let conversationId = conversation?.id;
+    console.log("Messages to save:", trimmedMessages);
+
+    let conversationId = conversation?.id || latestConversation?.id;
     if (!conversationId) {
       console.log("Inserting new conversation with messages:", trimmedMessages);
       const { data: newConversation, error: insertError } = await supabase
@@ -233,17 +364,25 @@ export async function POST(req: NextRequest) {
       }
 
       conversationId = newConversation.id;
+      console.log("New conversation created with ID:", conversationId);
     } else {
       console.log("Updating existing conversation:", conversationId);
-      const { error: updateError } = await supabase
+      const { data, error: updateError } = await supabase
         .from("conversations")
         .update({ messages: trimmedMessages })
-        .eq("id", conversationId);
+        .eq("id", conversationId)
+        .select();
 
       if (updateError) {
-        console.error("Supabase update error:", updateError);
+        console.error("Supabase update error:", {
+          message: updateError.message,
+          code: updateError.code,
+          details: updateError.details,
+          hint: updateError.hint,
+        });
         throw new Error(`Failed to update existing conversation: ${updateError.message}`);
       }
+      console.log("Conversation updated:", data);
     }
 
     return NextResponse.json({ response: result });
