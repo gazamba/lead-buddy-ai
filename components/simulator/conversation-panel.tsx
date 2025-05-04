@@ -16,7 +16,7 @@ import { Avatar } from "@/components/ui/avatar";
 
 interface Message {
   id: string;
-  role: "user" | "assistant";
+  role: "human" | "ai";
   content: string;
 }
 
@@ -70,17 +70,17 @@ export function ConversationPanel({
             <div
               key={message.id}
               className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
+                message.role === "human" ? "justify-end" : "justify-start"
               }`}
             >
               <div
                 className={`flex gap-3 max-w-[80%] ${
-                  message.role === "user" ? "flex-row-reverse" : ""
+                  message.role === "human" ? "flex-row-reverse" : ""
                 }`}
               >
                 <Avatar>
                   <div className="flex h-full w-full items-center justify-center bg-slate-100 dark:bg-slate-700 text-slate-900 dark:text-slate-100">
-                    {message.role === "user" ? (
+                    {message.role === "human" ? (
                       <User className="h-4 w-4" />
                     ) : (
                       employeeAvatar
@@ -89,7 +89,7 @@ export function ConversationPanel({
                 </Avatar>
                 <div
                   className={`rounded-lg p-3 ${
-                    message.role === "user"
+                    message.role === "human"
                       ? "bg-primary text-primary-foreground"
                       : "bg-muted"
                   }`}

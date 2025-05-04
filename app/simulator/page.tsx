@@ -12,6 +12,7 @@ import { ConversationActions } from "@/components/simulator/conversation-actions
 import { SavedConversations } from "@/components/simulator/saved-conversations";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { getScenarios, getScenarioById, getConversationById } from "@/lib/api";
+import { useToast } from "@/components/ui/use-toast";
 import type {
   Message,
   Feedback,
@@ -27,6 +28,7 @@ export default function SimulatorPage() {
   const conversationId = searchParams.get("conversation");
 
   const { user } = useAuth();
+  const { toast } = useToast();
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [currentScenario, setCurrentScenario] = useState<Scenario | null>(null);
   const [isLoadingScenarios, setIsLoadingScenarios] = useState(true);
@@ -57,9 +59,6 @@ export default function SimulatorPage() {
             setSessionId(conversationId);
             if (conversation.scenarios) {
               setCurrentScenario(conversation.scenarios as Scenario);
-              if ((conversation.messages as Message[]).length >= 4) {
-                await generateFeedback();
-              }
             }
           }
         } else {
@@ -76,15 +75,19 @@ export default function SimulatorPage() {
         }
       } catch (error) {
         console.error("Error loading data:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load scenarios or conversation.",
+          variant: "destructive",
+        });
       } finally {
         setIsLoadingScenarios(false);
       }
     };
 
     loadData();
-  }, [scenarioId, conversationId]); // Add dependencies
+  }, [scenarioId, conversationId, toast]);
 
-  // Reset conversation when currentScenario changes and no conversationId is provided
   useEffect(() => {
     if (currentScenario && !conversationId) {
       resetConversation();
@@ -94,6 +97,11 @@ export default function SimulatorPage() {
   const resetConversation = async () => {
     if (!currentScenario) {
       console.error("No current scenario available");
+      toast({
+        title: "Error",
+        description: "No scenario selected. Please select a scenario.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -121,19 +129,29 @@ export default function SimulatorPage() {
       const data = await response.json();
 
       if (data.response) {
-        console.log(data.response);
+        console.log("Initial AI response:", data.response);
         setMessages([
           {
             id: Date.now().toString(),
-            role: "assistant",
+            role: "ai",
             content: data.response,
           },
         ]);
       } else {
         console.error("API error:", data.error);
+        toast({
+          title: "Error",
+          description: "Failed to start conversation.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error starting conversation:", error);
+      toast({
+        title: "Error",
+        description: "Failed to start conversation.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +162,7 @@ export default function SimulatorPage() {
 
     const userMessage: Message = {
       id: Date.now().toString(),
-      role: "user",
+      role: "human",
       content: input,
     };
 
@@ -152,6 +170,7 @@ export default function SimulatorPage() {
     setIsLoading(true);
 
     try {
+      console.log("Sending message:", { input, sessionId });
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,33 +183,63 @@ export default function SimulatorPage() {
         }),
       });
       const data = await response.json();
+      console.log("API response:", data);
 
       if (data.response) {
         const assistantMessage: Message = {
           id: (Date.now() + 1).toString(),
-          role: "assistant",
+          role: "ai",
           content: data.response,
         };
         setMessages((prev) => [...prev, assistantMessage]);
-      } else if (data.feedback) {
-        setFeedback(data.feedback);
-        setIsChatEnded(true);
-        setActiveTab("feedback");
       } else {
         console.error("Error:", data.error);
+        toast({
+          title: "Error",
+          description: "Failed to send message.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error sending message:", error);
+      toast({
+        title: "Error",
+        description: "Failed to send message.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const generateFeedback = async () => {
-    if (!currentScenario || !sessionId) return;
+    if (!currentScenario || !sessionId) {
+      console.error("Missing scenario or session ID");
+      toast({
+        title: "Error",
+        description:
+          "Cannot generate feedback without a valid scenario or session.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check for minimum human messages
+    const humanMessages = messages.filter((msg) => msg.role === "human");
+    if (humanMessages.length < 2) {
+      console.log("Not enough human messages to generate feedback");
+      toast({
+        title: "Insufficient Conversation",
+        description:
+          "Please provide at least two responses to Casey before ending the conversation.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     setIsLoading(true);
     try {
+      console.log("Generating feedback with messages:", messages);
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -203,16 +252,35 @@ export default function SimulatorPage() {
         }),
       });
       const data = await response.json();
+      console.log("Feedback API response:", data);
 
       if (data.feedback) {
         setFeedback(data.feedback);
         setIsChatEnded(true);
         setActiveTab("feedback");
+        if (data.feedback.sbi_usage.score === 0) {
+          toast({
+            title: "Insufficient Feedback",
+            description:
+              "Please provide detailed feedback to Casey using the SBI model (Situation, Behavior, Impact), include an action plan, and balance praise with constructive feedback.",
+            variant: "destructive",
+          });
+        }
       } else {
         console.error("Error:", data.error);
+        toast({
+          title: "Error",
+          description: "Failed to generate feedback.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error generating feedback:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate feedback.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -230,12 +298,7 @@ export default function SimulatorPage() {
     setSessionId(conversation.id);
     setIsChatEnded(false);
     setActiveTab("conversation");
-
-    if (conversation.messages.length >= 4) {
-      await generateFeedback();
-    } else {
-      setFeedback(null);
-    }
+    setFeedback(null);
   };
 
   if (isLoadingScenarios) {
@@ -322,6 +385,18 @@ export default function SimulatorPage() {
                   employeeName={currentScenario.employee_name}
                   onSendMessage={handleSendMessage}
                 />
+                <div className="mt-4 flex justify-end">
+                  <Button
+                    onClick={generateFeedback}
+                    disabled={
+                      isLoading ||
+                      messages.filter((m) => m.role === "human").length < 2
+                    }
+                    className="bg-red-600 hover:bg-red-700 text-white"
+                  >
+                    End Conversation
+                  </Button>
+                </div>
               </TabsContent>
               <TabsContent value="feedback" className="mt-4">
                 <FeedbackPanel
