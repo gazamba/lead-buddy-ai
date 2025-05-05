@@ -22,13 +22,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = createClient();
 
   useEffect(() => {
-    const getUser = async () => {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) console.error("Error fetching user:", error);
-      setUser(data.user);
+    const checkSession = async () => {
+      try {
+        const { data: sessionData, error: sessionError } =
+          await supabase.auth.getSession();
+        if (sessionError) {
+          console.error("Error fetching session:", sessionError);
+          setUser(null);
+        } else if (sessionData.session) {
+          const { data, error } = await supabase.auth.getUser();
+          if (error) {
+            console.error("Error fetching user:", error);
+            setUser(null);
+          } else {
+            setUser(data.user);
+          }
+        } else {
+          setUser(null);
+        }
+      } catch (err) {
+        console.error("Unexpected error:", err);
+        setUser(null);
+      }
       setIsLoading(false);
     };
-    getUser();
+    checkSession();
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event, session) => {
