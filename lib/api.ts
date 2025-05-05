@@ -51,9 +51,7 @@ export async function createScenarioTips(formData: FormData) {
       [
       "Schedule a private meeting focused on support, not blame.",
       "Ask open-ended questions to explore possible external factors.",
-      "Express appreciation for past contributions to reduce defensiveness.",
-      "Clarify expectations and offer help to reestablish goals.",
-      "Set a follow-up check-in to monitor progress and offer continued support."
+      "Express appreciation for past contributions to reduce defensiveness."
       ]
       Now you know what expect, provide the 5 tips for the context scenario below:
       Title: ${data.title}, Description: ${data.description}, Context: ${data.context}

@@ -27,6 +27,7 @@ interface ConversationPanelProps {
   employeeName: string;
   onSendMessage: (message: string) => void;
   isChatEnded: boolean;
+  onEndConversation: () => void;
 }
 
 export function ConversationPanel({
@@ -36,6 +37,7 @@ export function ConversationPanel({
   employeeName,
   onSendMessage,
   isChatEnded,
+  onEndConversation,
 }: ConversationPanelProps) {
   const [input, setInput] = useState("");
 
@@ -43,10 +45,6 @@ export function ConversationPanel({
     if (input.trim() === "") return;
     onSendMessage(input);
     setInput("");
-  };
-
-  const handleEndConversation = () => {
-    onSendMessage("End conversation");
   };
 
   return (
@@ -154,8 +152,11 @@ export function ConversationPanel({
             </form>
             <Button
               variant="outline"
-              onClick={handleEndConversation}
-              disabled={isLoading}
+              onClick={onEndConversation}
+              disabled={
+                isLoading ||
+                messages.filter((m) => m.role === "human").length < 2
+              }
               aria-label="End conversation and view feedback"
             >
               End Conversation

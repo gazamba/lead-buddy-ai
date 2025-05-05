@@ -8,84 +8,79 @@ import { Feedback } from "@/lib/types";
 
 const getSystemPrompt = (employeeName: string, context: string) => `
 You are ${employeeName}, an employee in a one-on-one meeting with your mentor. Respond realistically based on this context: ${context}
-- Start the conversation by briefly acknowledging the meeting and sharing a relevant challenge or question (e.g., time management, workload, skills gaps) to set the stage for feedback.
-- Acknowledge feedback professionally, addressing the issues raised.
-- Share relevant challenges without being defensive.
-- Engage with the mentor’s suggestions and collaborate on an action plan.
-- Maintain a supportive, professional tone.
 
-If the user says "End conversation" or similar, do not respond as ${employeeName}. Instead, analyze the conversation and provide feedback on the mentor's performance based on:
-1. Use of the SBI model (Situation, Behavior, Impact).
-2. Inclusion of an action plan.
-3. Balance of praise and constructive feedback.
-Return the feedback in this JSON format:
-{
-  "sbi_usage": {"score": number, "description": "Description of SBI usage"},
-  "action_plan": {"score": number, "description": "Description of action plan clarity"},
-  "balance": {"score": number, "description": "Description of feedback balance"},
-  "overall": "Overall assessment and suggestions"
-}
+Your role is to:
+1. Start the conversation by briefly acknowledging the meeting and sharing a relevant challenge or question
+2. Acknowledge feedback professionally, addressing the issues raised
+3. Share relevant challenges without being defensive
+4. Engage with the mentor's suggestions and collaborate on an action plan
+5. Maintain a supportive, professional tone
+
+If the user says "End conversation" or similar, simply acknowledge the end of the conversation and thank them for their time.
+
+IMPORTANT: As the employee, you should:
+- Be open to receiving feedback
+- Ask for specific examples when receiving feedback
+- Show willingness to improve
+- Discuss concrete action plans
+- Balance acknowledging strengths with areas for improvement
 `;
 
 const FEEDBACK_PROMPT = ChatPromptTemplate.fromMessages([
   new SystemMessage(`
-Analyze the following conversation where a mentor provides feedback to an employee. Evaluate the mentor's performance based on:
-1. Use of the SBI model (Situation, Behavior, Impact).
-2. Inclusion of an action plan.
-3. Balance of praise and constructive feedback.
+You are a feedback analyzer. Your task is to analyze the following conversation and provide structured feedback.
 
-Return the feedback as a valid JSON object, wrapped in \`\`\`json\`\`\` code fences, in this exact format:
-\`\`\`json
+IMPORTANT: You must analyze the actual content of the conversation, not just check for keywords. Look for:
+1. Specific examples of feedback given
+2. Concrete suggestions for improvement
+3. Balance between positive and constructive feedback
+4. Clear action items or next steps
+
+Analyze the conversation based on:
+1. Use of the SBI model (Situation, Behavior, Impact)
+2. Inclusion of an action plan
+3. Balance of praise and constructive feedback
+
+Return your analysis as a JSON object in this exact format:
 {
   "sbi_usage": {
     "score": <number between 0 and 100>,
-    "description": "<Detailed description of how well the SBI model was used, specifying which components (Situation, Behavior, Impact) were included or missing, with examples from the conversation>"
+    "description": "<Detailed description of SBI usage, including specific examples from the conversation>"
   },
   "action_plan": {
     "score": <number between 0 and 100>,
-    "description": "<Detailed description of the action plan's clarity and feasibility, noting specific steps provided or missing, with examples>"
+    "description": "<Detailed description of action plan, including specific steps mentioned>"
   },
   "balance": {
     "score": <number between 0 and 100>,
-    "description": "<Detailed description of how well praise and constructive feedback were balanced, with examples of praise or criticism>"
+    "description": "<Detailed description of feedback balance, including examples of both praise and constructive feedback>"
   },
-  "overall": "<Concise summary of the mentor's performance, highlighting one key strength and one area for improvement>"
+  "overall": "<Overall assessment with specific examples from the conversation>"
 }
-\`\`\`
 
-Ensure the response contains only the JSON object inside the code fences, with no additional text or comments. If no conversation is provided or the conversation is too short to analyze, return an empty JSON object:
-\`\`\`json
-{}
-\`\`\`
+Guidelines for scoring:
+- SBI Usage (0-100):
+  * 0-30: No clear SBI elements or very vague feedback
+  * 31-60: Some SBI elements present but incomplete or unclear
+  * 61-80: Most SBI elements present and clear, with specific examples
+  * 81-100: All SBI elements present, well-structured, with clear examples and impact
+
+- Action Plan (0-100):
+  * 0-30: No clear action plan or very vague suggestions
+  * 31-60: Some suggestions but not specific or measurable
+  * 61-80: Clear steps with some detail and timeline
+  * 81-100: Specific, measurable, actionable steps with clear follow-up and timeline
+
+- Balance (0-100):
+  * 0-30: No balance between praise and criticism
+  * 31-60: Some balance but could be improved
+  * 61-80: Good balance with specific examples of both
+  * 81-100: Excellent balance with clear examples of strengths and areas for improvement
 
 Conversation:
 {{conversation}}
 `),
 ]);
-
-// Validate if human messages contain substantive feedback
-const isSubstantiveFeedback = (messages: HumanMessage[]): boolean => {
-  const feedbackKeywords = [
-    "situation",
-    "behavior",
-    "impact",
-    "plan",
-    "suggest",
-    "action",
-    "improve",
-    "strategy",
-    "feedback",
-    "deadline",
-    "priority",
-    "workload",
-  ];
-  return messages.some((msg) => {
-    const content = typeof msg.content === "string" ? msg.content.toLowerCase() : "";
-    const wordCount = content.split(/\s+/).length;
-    const hasKeywords = feedbackKeywords.some((keyword) => content.includes(keyword));
-    return wordCount > 10 || (wordCount > 5 && hasKeywords);
-  });
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -106,7 +101,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Employee name and context are required" }, { status: 400 });
     }
 
-    console.log("Fetching conversation for sessionId:", sessionId);
+    console.log("Processing request with sessionId:", sessionId, "input:", input);
+
+    const model = new ChatOpenAI({
+      model: "gpt-4.1",
+      temperature: 0.2,
+    });
+
+    let messages: Array<SystemMessage | HumanMessage | AIMessage> = [];
+    let conversationId: string | null = null;
+
+    // Fetch conversation
     const { data: conversation, error: fetchError } = await supabase
       .from("conversations")
       .select("*")
@@ -115,17 +120,13 @@ export async function POST(req: NextRequest) {
 
     if (fetchError) {
       console.error("Error fetching conversation:", fetchError);
-      throw new Error(`Failed to fetch conversation: ${fetchError.message}`);
+      return NextResponse.json(
+        { error: `Failed to fetch conversation: ${fetchError.message}` },
+        { status: 500 }
+      );
     }
 
     console.log("Fetched conversation:", conversation);
-
-    const model = new ChatOpenAI({
-      model: "gpt-4.1",
-      temperature: 0.2,
-    });
-
-    let messages: Array<SystemMessage | HumanMessage | AIMessage> = [];
 
     if (!conversation) {
       console.log("No existing conversation found, creating new one");
@@ -146,6 +147,7 @@ export async function POST(req: NextRequest) {
         if (msg.role === "ai") return new AIMessage(msg.content);
         throw new Error(`Invalid message role: ${msg.role}`);
       });
+      conversationId = conversation.id;
     }
 
     if (typeof input === "string" && input.toLowerCase().includes("end conversation")) {
@@ -157,101 +159,17 @@ export async function POST(req: NextRequest) {
         .join("\n");
       console.log("Conversation text:", conversationText);
 
-      const nonSystemMessages = messages.filter((msg) => !(msg instanceof SystemMessage));
-      const humanMessages = nonSystemMessages.filter((msg) => msg instanceof HumanMessage) as HumanMessage[];
-      console.log("Non-system messages:", nonSystemMessages.length, "Human messages:", humanMessages.length);
-
-      if (humanMessages.length === 0) {
-        console.log("No human messages found, returning default feedback");
-        const defaultFeedback = {
-          feedback: {
-            sbi_usage: {
-              score: 0,
-              description: `No mentor feedback provided to evaluate SBI usage. Please respond to ${employeeName}'s concerns before ending the conversation.`,
-            },
-            action_plan: {
-              score: 0,
-              description: "No action plan provided due to lack of mentor feedback.",
-            },
-            balance: {
-              score: 0,
-              description: "No mentor feedback given to assess balance of praise and constructive feedback.",
-            },
-            overall: [
-              `To receive feedback, provide at least one response to ${employeeName}'s concerns using the SBI model (Situation, Behavior, Impact).`,
-            ],
-          },
-        };
-        console.log("Returning default feedback:", defaultFeedback);
-        return NextResponse.json(defaultFeedback);
-      }
-
-      if (!isSubstantiveFeedback(humanMessages)) {
-        console.log("Human messages lack substantive feedback, returning default feedback");
-        const defaultFeedback = {
-          feedback: {
-            sbi_usage: {
-              score: 0,
-              description: `Your responses were too brief or off-topic to evaluate SBI usage. Please provide specific feedback addressing ${employeeName}'s concerns, using the SBI model (Situation, Behavior, Impact).`,
-            },
-            action_plan: {
-              score: 0,
-              description: `No actionable steps were provided. Suggest specific strategies to help ${employeeName} improve.`,
-            },
-            balance: {
-              score: 0,
-              description: "No praise or constructive feedback was given to assess balance. Include both in your responses.",
-            },
-            overall: [
-              `To receive a full evaluation, provide detailed feedback to ${employeeName} using the SBI model, include an action plan, and balance praise with constructive feedback. For example, describe a specific situation, the behavior observed, and its impact.`,
-            ],
-          },
-        };
-        console.log("Returning default feedback:", defaultFeedback);
-        return NextResponse.json(defaultFeedback);
-      }
-
       const feedbackChain = FEEDBACK_PROMPT.pipe(model).pipe(new StringOutputParser());
       const feedbackResult = await feedbackChain.invoke({ conversation: conversationText });
       console.log("Raw feedback result:", feedbackResult);
 
-      const jsonMatch = feedbackResult.match(/```json\n([\s\S]*?)\n```/);
-      if (!jsonMatch || !jsonMatch[1]) {
-        console.error("No valid JSON found in feedback result:", feedbackResult);
-        throw new Error("Invalid feedback format: JSON not found");
-      }
-
       let feedbackJson: any;
       try {
-        feedbackJson = JSON.parse(jsonMatch[1]);
+        // Try to parse the feedback result directly as JSON
+        feedbackJson = JSON.parse(feedbackResult);
       } catch (parseError) {
         console.error("Failed to parse feedback JSON:", parseError);
         throw new Error(`Invalid feedback format: ${parseError}`);
-      }
-
-      if (Object.keys(feedbackJson).length === 0 || !feedbackJson.sbi_usage?.description) {
-        console.log("Model returned empty or incomplete feedback, returning default feedback");
-        const defaultFeedback = {
-          feedback: {
-            sbi_usage: {
-              score: 0,
-              description: `Your responses did not provide enough detail to evaluate SBI usage. Please use the SBI model by describing a specific situation, the behavior observed, and its impact.`,
-            },
-            action_plan: {
-              score: 0,
-              description: `No actionable steps were provided. Include specific strategies to help ${employeeName} address their concerns.`,
-            },
-            balance: {
-              score: 0,
-              description: "No praise or constructive feedback was given to assess balance. Ensure your responses include both.",
-            },
-            overall: [
-              `To receive a full evaluation, provide detailed feedback to ${employeeName} using the SBI model, suggest an action plan, and balance praise with constructive feedback.`,
-            ],
-          },
-        };
-        console.log("Returning default feedback:", defaultFeedback);
-        return NextResponse.json(defaultFeedback);
       }
 
       const transformedFeedback: Feedback = {
@@ -272,11 +190,19 @@ export async function POST(req: NextRequest) {
 
       console.log("Transformed feedback:", transformedFeedback);
 
-      console.log("Deleting conversation with sessionId:", sessionId);
-      await supabase.from("conversations").delete().eq("session_id", sessionId);
+      // Store feedback in conversation
+      if (conversationId) {
+        console.log("Storing feedback in conversation");
+        await supabase
+          .from("conversations")
+          .update({ feedback: transformedFeedback })
+          .eq("id", conversationId);
+      }
+
       return NextResponse.json({ feedback: transformedFeedback });
     }
 
+    // Regular chat response handling
     let result = "";
     if (typeof input === "string" && input.trim()) {
       messages.push(new HumanMessage(input));
@@ -286,41 +212,14 @@ export async function POST(req: NextRequest) {
       result = await chain.invoke({});
       console.log("New human message:", input);
       console.log("AI response:", result);
+      messages.push(new AIMessage(result));
     } else if (!conversation) {
       result = messages[messages.length - 1].content as string;
     } else {
       return NextResponse.json({ response: "" });
     }
 
-    // Refetch conversation to prevent overwrites
-    console.log("Refetching conversation before update for sessionId:", sessionId);
-    const { data: latestConversation, error: refetchError } = await supabase
-      .from("conversations")
-      .select("*")
-      .eq("session_id", sessionId)
-      .maybeSingle();
-
-    if (refetchError) {
-      console.error("Error refetching conversation:", refetchError);
-      throw new Error(`Failed to refetch conversation: ${refetchError.message}`);
-    }
-
-    let latestMessages = messages;
-    if (latestConversation) {
-      console.log("Latest conversation messages:", latestConversation.messages);
-      latestMessages = latestConversation.messages.map((msg: { role: string; content: string }) => {
-        if (msg.role === "system") return new SystemMessage(msg.content);
-        if (msg.role === "human") return new HumanMessage(msg.content);
-        if (msg.role === "ai") return new AIMessage(msg.content);
-        throw new Error(`Invalid message role: ${msg.role}`);
-      });
-      if (typeof input === "string" && input.trim()) {
-        latestMessages.push(new HumanMessage(input));
-        latestMessages.push(new AIMessage(result));
-      }
-    }
-
-    const updatedMessages = latestMessages.map((msg) => ({
+    const updatedMessages = messages.map((msg) => ({
       role: msg._getType(),
       content: msg.content,
     }));
@@ -333,7 +232,6 @@ export async function POST(req: NextRequest) {
 
     console.log("Messages to save:", trimmedMessages);
 
-    let conversationId = conversation?.id || latestConversation?.id;
     if (!conversationId) {
       console.log("Inserting new conversation with messages:", trimmedMessages);
       const { data: newConversation, error: insertError } = await supabase
@@ -356,33 +254,49 @@ export async function POST(req: NextRequest) {
           details: insertError.details,
           hint: insertError.hint,
         });
-        throw new Error(`Failed to create new conversation: ${insertError.message}`);
+        return NextResponse.json(
+          { error: `Failed to create new conversation: ${insertError.message}` },
+          { status: 500 }
+        );
       }
       if (!newConversation) {
         console.error("No conversation returned from insert");
-        throw new Error("Failed to create new conversation: No data returned");
+        return NextResponse.json(
+          { error: "Failed to create new conversation: No data returned" },
+          { status: 500 }
+        );
       }
 
       conversationId = newConversation.id;
       console.log("New conversation created with ID:", conversationId);
     } else {
-      console.log("Updating existing conversation:", conversationId);
-      const { data, error: updateError } = await supabase
+      console.log("Upserting conversation:", conversationId);
+      const { data, error: upsertError } = await supabase
         .from("conversations")
-        .update({ messages: trimmedMessages })
-        .eq("id", conversationId)
+        .upsert({
+          id: conversationId,
+          session_id: sessionId,
+          user_id: userId,
+          scenario_id: scenarioId,
+          messages: trimmedMessages,
+          employee_name: employeeName,
+          context: context,
+        })
         .select();
 
-      if (updateError) {
-        console.error("Supabase update error:", {
-          message: updateError.message,
-          code: updateError.code,
-          details: updateError.details,
-          hint: updateError.hint,
+      if (upsertError) {
+        console.error("Supabase upsert error:", {
+          message: upsertError.message,
+          code: upsertError.code,
+          details: upsertError.details,
+          hint: upsertError.hint,
         });
-        throw new Error(`Failed to update existing conversation: ${updateError.message}`);
+        return NextResponse.json(
+          { error: `Failed to upsert conversation: ${upsertError.message}` },
+          { status: 500 }
+        );
       }
-      console.log("Conversation updated:", data);
+      console.log("Conversation upserted successfully:", data);
     }
 
     return NextResponse.json({ response: result });

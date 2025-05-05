@@ -384,19 +384,8 @@ export default function SimulatorPage() {
                   employeeAvatar={currentScenario.employee_avatar}
                   employeeName={currentScenario.employee_name}
                   onSendMessage={handleSendMessage}
+                  onEndConversation={generateFeedback}
                 />
-                <div className="mt-4 flex justify-end">
-                  <Button
-                    onClick={generateFeedback}
-                    disabled={
-                      isLoading ||
-                      messages.filter((m) => m.role === "human").length < 2
-                    }
-                    className="bg-red-600 hover:bg-red-700 text-white"
-                  >
-                    End Conversation
-                  </Button>
-                </div>
               </TabsContent>
               <TabsContent value="feedback" className="mt-4">
                 <FeedbackPanel
