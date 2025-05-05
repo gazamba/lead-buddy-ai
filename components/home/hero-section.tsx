@@ -1,6 +1,7 @@
-import Link from "next/link"
-import { ArrowRight, Wand2 } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import Link from "next/link";
+import { ArrowRight, Wand2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import Image from "next/image";
 
 export function HeroSection() {
   return (
@@ -12,8 +13,9 @@ export function HeroSection() {
               Master Critical Conversations with AI-Powered Practice
             </h1>
             <p className="text-gray-500 md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
-              Improve your management skills through realistic simulations of feedback sessions, performance reviews,
-              and difficult conversations.
+              Improve your management skills through realistic simulations of
+              feedback sessions, performance reviews, and difficult
+              conversations.
             </p>
             <div className="flex flex-col gap-2 min-[400px]:flex-row">
               <Link href="/simulator">
@@ -29,15 +31,19 @@ export function HeroSection() {
               </Link>
             </div>
           </div>
-          <div className="mx-auto w-full max-w-[500px] aspect-video rounded-xl bg-slate-100 shadow-lg overflow-hidden">
-            <img
-              src="/placeholder.svg?height=500&width=800"
-              alt="Manager practicing a conversation with an AI simulation"
-              className="w-full h-full object-cover"
-            />
+          <div className="mx-auto w-full max-w-[800px] aspect-video rounded-xl shadow-lg overflow-hidden">
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            >
+              <source src="/assets/sped_up.mp4" type="video/mp4" />
+            </video>
           </div>
         </div>
       </div>
     </section>
-  )
+  );
 }
