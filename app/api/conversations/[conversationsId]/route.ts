@@ -3,14 +3,14 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { conversationsId: string } }
+  { params }: { params: Promise<{ conversationsId: string }> }
 ) {
   try {
     const supabase = await createClient();
     const { conversationsId } = await params;
     const user = await supabase.auth.getUser();
 
-    if (!user) {
+    if (!user.data.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -35,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    if (data.user_id !== user.data.user?.id) {
+    if (data.user_id !== user.data.user.id) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
     }
 
@@ -51,7 +51,7 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { conversationsId: string } }
+  { params }: { params: Promise<{ conversationsId: string }> }
 ) {
   try {
     const supabase = await createClient();

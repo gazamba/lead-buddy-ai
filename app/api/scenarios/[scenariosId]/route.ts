@@ -3,7 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { scenariosId: string } }
+  { params }: { params: Promise<{ scenariosId: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -47,7 +47,7 @@ export async function GET(
 
 export async function DELETE(
   request: Request,
-  { params }: { params: { scenariosId: string } }
+  { params }: { params: Promise<{ scenariosId: string }> }
 ) {
   try {
     const supabase = await createClient();
@@ -106,7 +106,7 @@ export async function DELETE(
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { scenariosId: string } }
+  { params }: { params: Promise<{ scenariosId: string }> }
 ) {
   try {
     const supabase = await createClient();
