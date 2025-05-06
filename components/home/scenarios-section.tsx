@@ -5,7 +5,33 @@ import { SectionHeader } from "@/components/ui/section-header";
 import { getScenarios } from "@/lib/api";
 
 export async function ScenariosSection() {
-  const scenarios = await getScenarios();
+  let scenarios = [];
+  try {
+    scenarios = await getScenarios();
+  } catch (error) {
+    console.error("Failed to fetch scenarios:", error);
+    // Use default scenarios if the API is not available
+    scenarios = [
+      {
+        id: "performance-review",
+        title: "Performance Review",
+        description:
+          "Practice giving constructive feedback in a performance review setting.",
+      },
+      {
+        id: "team-conflict",
+        title: "Team Conflict",
+        description:
+          "Learn how to mediate and resolve conflicts between team members.",
+      },
+      {
+        id: "career-development",
+        title: "Career Development",
+        description:
+          "Guide employees through career growth and development discussions.",
+      },
+    ];
+  }
 
   return (
     <section

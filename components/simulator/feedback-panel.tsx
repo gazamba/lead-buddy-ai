@@ -10,39 +10,32 @@ import {
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-
-interface Feedback {
-  sbi_usage: { score: number; description: string };
-  action_plan: { score: number; description: string };
-  balance: { score: number; description: string };
-  overall: string[];
-}
+import type { Feedback } from "@/lib/types";
 
 interface FeedbackPanelProps {
   feedback: Feedback | null;
-  scenarioParam: string;
-  onPracticeAgain: () => void;
+  onGenerateFeedback: () => Promise<void>;
 }
 
 export function FeedbackPanel({
   feedback,
-  scenarioParam,
-  onPracticeAgain,
+  onGenerateFeedback,
 }: FeedbackPanelProps) {
   if (!feedback) {
     return (
-      <Card className="h-[600px] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
-        <CardContent>
-          <p className="text-center text-gray-500 dark:text-gray-400 text-lg font-medium">
+      <Card className="flex-1 flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-900">
+        <CardContent className="text-center">
+          <p className="text-gray-500 dark:text-gray-400 text-lg font-medium mb-4">
             Keep the conversation flowing to unlock your feedback! 🚀
           </p>
+          <Button onClick={onGenerateFeedback}>Generate Feedback</Button>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card className="h-[600px] overflow-auto bg-white dark:bg-gray-800 shadow-xl rounded-xl">
+    <Card className="flex-1 overflow-auto bg-white dark:bg-gray-800 shadow-xl rounded-xl">
       <CardHeader className="bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-t-xl">
         <CardTitle className="text-2xl font-bold">
           Your Feedback Report
@@ -125,15 +118,6 @@ export function FeedbackPanel({
               ))}
             </div>
           </div>
-        </div>
-
-        <div className="pt-4 flex justify-end">
-          <Button
-            onClick={onPracticeAgain}
-            className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg transition-all duration-200"
-          >
-            Practice Again 🔥
-          </Button>
         </div>
       </CardContent>
     </Card>

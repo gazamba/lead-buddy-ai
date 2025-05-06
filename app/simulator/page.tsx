@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { Info } from "lucide-react";
 import { NavHeader } from "@/components/layout/nav-header";
@@ -22,7 +22,7 @@ import type {
 import { useAuth } from "@/components/auth-provider";
 import { v4 as uuidv4 } from "uuid";
 
-export default function SimulatorPage() {
+function SimulatorContent() {
   const searchParams = useSearchParams();
   const scenarioId = searchParams.get("scenario");
   const conversationId = searchParams.get("conversation");
@@ -339,65 +339,78 @@ export default function SimulatorPage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex h-screen flex-col">
       <NavHeader />
-      <main className="flex-1 container py-6 px-4 md:px-6 md:py-10">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">{currentScenario.title}</h1>
-          <div className="flex gap-2">
-            <SavedConversations onLoadConversation={handleLoadConversation} />
-          </div>
-        </div>
-
-        <div className="grid gap-6 lg:grid-cols-3 lg:gap-12">
-          <ScenarioContext
-            title={currentScenario.title}
-            description={currentScenario.description}
-            context={currentScenario.context}
-            tips={currentScenario.tips || defaultTips}
-          />
-          <div className="lg:col-span-2">
-            <ConversationActions
-              messages={messages}
-              scenarioId={currentScenario.id}
-              scenarioTitle={currentScenario.title}
-              onReset={resetConversation}
-            />
-
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="w-full"
-            >
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="conversation">Conversation</TabsTrigger>
-                <TabsTrigger value="feedback" disabled={!feedback}>
-                  Feedback
-                  {!feedback && <Info className="ml-2 h-4 w-4" />}
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="conversation" className="mt-4">
-                <ConversationPanel
-                  isChatEnded={isChatEnded}
-                  messages={messages}
-                  isLoading={isLoading}
-                  employeeAvatar={currentScenario.employee_avatar}
-                  employeeName={currentScenario.employee_name}
-                  onSendMessage={handleSendMessage}
-                  onEndConversation={generateFeedback}
-                />
-              </TabsContent>
-              <TabsContent value="feedback" className="mt-4">
-                <FeedbackPanel
-                  feedback={feedback}
-                  scenarioParam={currentScenario.id}
-                  onPracticeAgain={resetConversation}
-                />
-              </TabsContent>
-            </Tabs>
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex flex-1">
+          <div className="flex w-full flex-col xl:flex-row">
+            <div className="flex w-full flex-col xl:w-1/4">
+              <ScenarioContext
+                scenarios={scenarios}
+                currentScenario={currentScenario}
+                setCurrentScenario={setCurrentScenario}
+                isLoading={isLoadingScenarios}
+              />
+              <SavedConversations onLoadConversation={handleLoadConversation} />
+            </div>
+            <div className="flex flex-1 flex-col overflow-hidden xl:w-3/4">
+              <Tabs
+                value={activeTab}
+                onValueChange={setActiveTab}
+                className="flex h-full flex-col"
+              >
+                <div className="flex items-center justify-between border-b px-4 py-2">
+                  <TabsList>
+                    <TabsTrigger value="conversation">Conversation</TabsTrigger>
+                    <TabsTrigger value="feedback">Feedback</TabsTrigger>
+                  </TabsList>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={resetConversation}
+                    >
+                      Reset
+                    </Button>
+                  </div>
+                </div>
+                <TabsContent
+                  value="conversation"
+                  className="flex-1 overflow-hidden data-[state=inactive]:hidden"
+                >
+                  <ConversationPanel
+                    messages={messages}
+                    isLoading={isLoading}
+                    tips={currentScenario?.tips || defaultTips}
+                  />
+                  <ConversationActions
+                    onSendMessage={handleSendMessage}
+                    onEndChat={generateFeedback}
+                    isChatEnded={isChatEnded}
+                  />
+                </TabsContent>
+                <TabsContent
+                  value="feedback"
+                  className="flex-1 overflow-auto data-[state=inactive]:hidden"
+                >
+                  <FeedbackPanel
+                    feedback={feedback}
+                    onGenerateFeedback={generateFeedback}
+                  />
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SimulatorPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <SimulatorContent />
+    </Suspense>
   );
 }
