@@ -5,7 +5,7 @@ import tsconfigPaths from 'vite-tsconfig-paths';
 export default defineConfig({
   plugins: [
     react(),
-    tsconfigPaths() // This plugin should come before react if you have issues.
+    tsconfigPaths()
   ],
   test: {
     globals: true,
