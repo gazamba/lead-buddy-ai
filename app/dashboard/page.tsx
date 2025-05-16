@@ -103,7 +103,6 @@ export default function DashboardPage() {
             </Link>
           </Button>
         </div>
-
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-2 mb-8">
             <TabsTrigger value="scenarios">My Scenarios</TabsTrigger>
