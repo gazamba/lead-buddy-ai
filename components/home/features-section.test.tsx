@@ -16,7 +16,6 @@ describe("FeaturesSection", () => {
 
   it("renders all features with correct titles and descriptions", () => {
     render(<FeaturesSection />);
-
     const features = [
       {
         title: "Realistic Simulations",
